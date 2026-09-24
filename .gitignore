@@ -1,0 +1,30 @@
+# Reference projects — research only, never part of mini-s3
+buckie-php/
+lite-s3/
+s3-server/
+simple-php-s3-server/
+
+# Dependencies (dev-only)
+/vendor/
+composer.lock
+
+# Runtime data & secrets (outside webroot in production)
+/data/
+/config.php
+/.env
+
+# Tests / tooling
+/.phpunit.cache/
+/.phpunit.result.cache
+/coverage/
+/tests/_tmp/
+
+# Logs
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
