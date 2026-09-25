@@ -31,3 +31,6 @@ Thumbs.db
 
 # local smoke-test scratch (never committed)
 tmp/
+
+# Local Astro starter exploration (site lives on the web branch)
+/starlight/
