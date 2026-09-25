@@ -75,13 +75,22 @@ final class Authenticator
         if ($payloadHash === null) {
             throw S3Exception::missingSecurityHeader('x-amz-content-sha256');
         }
-        if (!in_array($payloadHash, ['UNSIGNED-PAYLOAD', 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD', 'STREAMING-UNSIGNED-PAYLOAD-TRAILER'], true)
+        if (!in_array($payloadHash, [
+                'UNSIGNED-PAYLOAD',
+                'STREAMING-AWS4-HMAC-SHA256-PAYLOAD',
+                'STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER',
+                'STREAMING-UNSIGNED-PAYLOAD-TRAILER',
+            ], true)
             && !preg_match('/^[a-f0-9]{64}$/', $payloadHash)
         ) {
             throw S3Exception::xAmzContentSha256Mismatch();
         }
-        if (str_starts_with($payloadHash, 'STREAMING-')) {
-            throw S3Exception::notImplemented('Streaming chunked upload (aws-chunked) is not enabled yet.');
+        if (in_array($payloadHash, ['STREAMING-AWS4-HMAC-SHA256-PAYLOAD', 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER', 'STREAMING-UNSIGNED-PAYLOAD-TRAILER'], true)) {
+            if ($request->header('x-amz-decoded-content-length') === null) {
+                throw S3Exception::invalidRequest(
+                    'x-amz-decoded-content-length is required for aws-chunked streaming uploads.',
+                );
+            }
         }
 
         $signed = $this->parseSignedHeaders($signedHeaders);
@@ -140,6 +149,8 @@ final class Authenticator
 
         $this->credentials->touch($accessKeyId);
 
+        $streamingSigned = in_array($payloadHash, ['STREAMING-AWS4-HMAC-SHA256-PAYLOAD', 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER'], true);
+
         return new AuthContext(
             accessKeyId: $accessKeyId,
             secret: $cred['secret'],
@@ -149,6 +160,8 @@ final class Authenticator
             shortDate: $shortDate,
             payloadHash: $payloadHash,
             isPresigned: false,
+            chunkSeedSignature: $streamingSigned ? $expected : null,
+            amzDate: $amzDate,
         );
     }
 

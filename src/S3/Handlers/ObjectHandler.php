@@ -10,6 +10,7 @@ use MiniS3\Http\Response;
 use MiniS3\Meta\BucketRepository;
 use MiniS3\Meta\ObjectRepository;
 use MiniS3\S3\Exception\S3Exception;
+use MiniS3\S3\ChunkedDecoder;
 use MiniS3\S3\KeySanitizer;
 use MiniS3\S3\PayloadVerifier;
 use MiniS3\S3\S3Operation;
@@ -62,7 +63,18 @@ final class ObjectHandler
     {
         KeySanitizer::validate($key);
 
-        $declared = $request->contentLength();
+        $streaming = $auth->isStreaming();
+        if ($streaming) {
+            $decodedHdr = $request->header('x-amz-decoded-content-length');
+            if ($decodedHdr === null || !preg_match('/^\d{1,12}$/', $decodedHdr)) {
+                throw S3Exception::invalidRequest(
+                    'x-amz-decoded-content-length must be a non-negative integer for aws-chunked uploads.',
+                );
+            }
+            $declared = (int) $decodedHdr;
+        } else {
+            $declared = $request->contentLength();
+        }
         if ($declared !== null && $declared > $this->maxObjectBytes) {
             throw S3Exception::entityTooLarge($this->maxObjectBytes);
         }
@@ -70,8 +82,17 @@ final class ObjectHandler
             throw S3Exception::internalError('insufficient storage space');
         }
 
-        $staged = $this->storage->stage($request->bodyStream(), $declared);
+        [$body, $chunkState] = $streaming
+            ? ChunkedDecoder::wrap($request->bodyStream(), $auth)
+            : [$request->bodyStream(), null];
+
+        // For streaming, byte-exact enforcement lives in ChunkedDecoder::assertValid
+        // (signature errors must win over a short-read IncompleteBody).
+        $staged = $this->storage->stage($body, $chunkState !== null ? null : $declared);
         try {
+            if ($chunkState !== null) {
+                ChunkedDecoder::assertValid($chunkState, $declared);
+            }
             PayloadVerifier::verify($request, $auth, $staged);
 
             $contentType = $request->header('content-type');
@@ -94,7 +115,7 @@ final class ObjectHandler
                 $staged->size,
                 $staged->md5,
                 $contentType,
-                $request->headers,
+                self::stripChunkedEncoding($request->headers),
                 UserMetadata::extract($request),
             );
         } catch (\Throwable $e) {
@@ -257,6 +278,31 @@ final class ObjectHandler
     }
 
     /* --------------------------------------------------------- helpers */
+
+    /**
+     * S3 stores the object WITHOUT the aws-chunked content-encoding token
+     * ("aws-chunked,gzip" is stored as "gzip").
+     *
+     * @param array<string, string> $headers
+     * @return array<string, string>
+     */
+    private static function stripChunkedEncoding(array $headers): array
+    {
+        if (!isset($headers['content-encoding'])) {
+            return $headers;
+        }
+        $tokens = array_values(array_filter(
+            array_map('trim', explode(',', $headers['content-encoding'])),
+            static fn (string $t): bool => $t !== '' && strtolower($t) !== 'aws-chunked',
+        ));
+        if ($tokens === []) {
+            unset($headers['content-encoding']);
+        } else {
+            $headers['content-encoding'] = implode(', ', $tokens);
+        }
+
+        return $headers;
+    }
 
     /** @return array{0: string, 1: string} bucket, key */
     private function parseCopySource(string $source): array

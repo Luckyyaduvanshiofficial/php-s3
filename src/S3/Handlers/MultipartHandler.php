@@ -12,6 +12,7 @@ use MiniS3\Meta\MultipartRepository;
 use MiniS3\Meta\ObjectRepository;
 use MiniS3\S3\BucketNameValidator;
 use MiniS3\S3\Exception\S3Exception;
+use MiniS3\S3\ChunkedDecoder;
 use MiniS3\S3\KeySanitizer;
 use MiniS3\S3\PayloadVerifier;
 use MiniS3\S3\S3Operation;
@@ -88,7 +89,18 @@ final class MultipartHandler
         $uploadId = $this->uploadId($request);
         $this->requireUpload($bucketId, $key, $uploadId);
 
-        $declared = $request->contentLength();
+        $streaming = $auth->isStreaming();
+        if ($streaming) {
+            $decodedHdr = $request->header('x-amz-decoded-content-length');
+            if ($decodedHdr === null || !preg_match('/^\d{1,12}$/', $decodedHdr)) {
+                throw S3Exception::invalidRequest(
+                    'x-amz-decoded-content-length must be a non-negative integer for aws-chunked uploads.',
+                );
+            }
+            $declared = (int) $decodedHdr;
+        } else {
+            $declared = $request->contentLength();
+        }
         if ($declared !== null && $declared > self::MAX_PART_BYTES) {
             throw S3Exception::entityTooLarge(self::MAX_PART_BYTES);
         }
@@ -96,8 +108,16 @@ final class MultipartHandler
             throw S3Exception::internalError('insufficient storage space');
         }
 
-        $staged = $this->storage->stage($request->bodyStream(), $declared);
+        [$body, $chunkState] = $streaming
+            ? ChunkedDecoder::wrap($request->bodyStream(), $auth)
+            : [$request->bodyStream(), null];
+
+        // Streaming: signature/length errors surface via ChunkedDecoder::assertValid below.
+        $staged = $this->storage->stage($body, $chunkState !== null ? null : $declared);
         try {
+            if ($chunkState !== null) {
+                ChunkedDecoder::assertValid($chunkState, $declared);
+            }
             PayloadVerifier::verify($request, $auth, $staged);
             $this->storage->commitPart($uploadId, $partNumber, $staged);
         } catch (\Throwable $e) {
