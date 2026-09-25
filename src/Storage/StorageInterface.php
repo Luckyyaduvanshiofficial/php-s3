@@ -52,4 +52,34 @@ interface StorageInterface
 
     /** Best-effort free-space sanity check (shared hosts can fill fast). */
     public function hasRoomFor(int $bytes): bool;
+
+    /* ------------------------------------------------------ multipart */
+
+    /**
+     * Move a staged part into the multipart area: {root}/parts/{uploadId}/{partNumber}.
+     * uploadId is a server-minted 32-hex token; anything else is rejected.
+     *
+     * @throws \MiniS3\S3\Exception\S3Exception NoSuchUpload on bad uploadId/partNumber
+     */
+    public function commitPart(string $uploadId, int $partNumber, StagedObject $staged): void;
+
+    /**
+     * Open an uploaded part. Caller closes the handle.
+     *
+     * @return resource
+     * @throws \MiniS3\S3\Exception\S3Exception InvalidPart when the part file is missing
+     */
+    public function openPart(string $uploadId, int $partNumber);
+
+    /**
+     * Concatenate parts (in the given order) into staging while hashing.
+     * Verifies the total against $expectedBytes (assembled size guard).
+     *
+     * @param list<int> $partNumbers
+     * @throws \MiniS3\S3\Exception\S3Exception InvalidPart / IncompleteBody / IO failure
+     */
+    public function assembleParts(string $uploadId, array $partNumbers, int $expectedBytes): StagedObject;
+
+    /** Remove every part file for an upload. Idempotent. */
+    public function deleteParts(string $uploadId): void;
 }

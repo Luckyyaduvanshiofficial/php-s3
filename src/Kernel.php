@@ -11,11 +11,13 @@ use MiniS3\Meta\AccessKeyRepository;
 use MiniS3\Meta\BucketRepository;
 use MiniS3\Meta\Crypto;
 use MiniS3\Meta\Database;
+use MiniS3\Meta\MultipartRepository;
 use MiniS3\Meta\ObjectRepository;
 use MiniS3\Meta\UserRepository;
 use MiniS3\S3\Exception\S3Exception;
 use MiniS3\S3\Handlers\BucketHandler;
 use MiniS3\S3\Handlers\ListHandler;
+use MiniS3\S3\Handlers\MultipartHandler;
 use MiniS3\S3\Handlers\ObjectHandler;
 use MiniS3\S3\Handlers\ObjectResponder;
 use MiniS3\S3\Handlers\ServiceHandler;
@@ -136,11 +138,20 @@ final class Kernel
             case S3Operation::ListObjectsV2:
                 return $this->services()->list->list($auth, $bucket, $request->query(), true);
 
+            case S3Operation::MultipartCreate:
+            case S3Operation::MultipartUploadPart:
+            case S3Operation::MultipartComplete:
+            case S3Operation::MultipartAbort:
+            case S3Operation::MultipartListParts:
+            case S3Operation::MultipartListUploads:
+                return $this->services()->multipart->handle($request, $auth, $bucket, $key, $op);
+
             default:
-                // Multipart, batch delete, presign → Phase 4 (documented as unsupported
-                // in docs/S3-COMPATIBILITY.md; the support-matrix test pins this list).
+                // Unreachable in practice: ObjectGetPresigned never resolves
+                // (presigned requests resolve their underlying operation and
+                // are verified in Authenticator).
                 throw S3Exception::notImplemented(
-                    "Operation '{$op->value}' is not implemented yet (planned for the Core S3 compatibility phase).",
+                    "Operation '{$op->value}' is not available.",
                 );
         }
     }
@@ -172,8 +183,9 @@ final class Kernel
             $responder = new ObjectResponder($storage);
             $object = new ObjectHandler($this->buckets(), $this->objects(), $storage, $responder, $this->maxObjectBytes());
             $list = new ListHandler($this->buckets(), $this->objects());
+            $multipart = new MultipartHandler($this->buckets(), $this->objects(), $this->multipartUploads(), $storage, $this->maxObjectBytes());
 
-            $this->services = (object) compact('service', 'bucket', 'object', 'list');
+            $this->services = (object) compact('service', 'bucket', 'object', 'list', 'multipart');
         }
 
         return $this->services;
@@ -215,6 +227,12 @@ final class Kernel
     {
         static $repo;
         return $repo ??= new ObjectRepository($this->db());
+    }
+
+    private function multipartUploads(): MultipartRepository
+    {
+        static $repo;
+        return $repo ??= new MultipartRepository($this->db());
     }
 
     private function users(): UserRepository

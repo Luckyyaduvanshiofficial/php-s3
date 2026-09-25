@@ -124,6 +124,9 @@ CREATE TABLE audit_log (
   KEY idx_audit_user (user_id, event_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 SQL,
+
+        // v3 — Phase 4: composite multipart ETags ("md5-of-md5s-N") exceed 32 chars.
+        3 => 'ALTER TABLE objects MODIFY etag VARCHAR(64) NOT NULL;',
     ];
 
     public function __construct(private readonly Database $db)

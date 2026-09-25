@@ -185,7 +185,127 @@ final class LocalFilesystemStorage implements StorageInterface
         return $free > $bytes + 16 * 1024 * 1024;
     }
 
+    /* ------------------------------------------------------- multipart */
+
+    public function commitPart(string $uploadId, int $partNumber, StagedObject $staged): void
+    {
+        $dir = $this->partsDir($uploadId, $partNumber);
+        $target = $dir . '/' . $partNumber;
+
+        if (!@rename($staged->tmpPath, $target)) {
+            if (!@copy($staged->tmpPath, $target)) {
+                @unlink($staged->tmpPath);
+                throw S3Exception::internalError('unable to move part into place');
+            }
+            @unlink($staged->tmpPath);
+        }
+    }
+
+    public function openPart(string $uploadId, int $partNumber)
+    {
+        $dir = $this->partsDir($uploadId, $partNumber, create: false);
+        $absolute = $dir === null ? null : realpath($dir . '/' . $partNumber);
+        if ($absolute === false || $absolute === null || !is_file($absolute)) {
+            throw S3Exception::invalidPart((string) $partNumber);
+        }
+        $fh = @fopen($absolute, 'rb');
+        if ($fh === false) {
+            throw S3Exception::internalError('unable to open part');
+        }
+
+        return $fh;
+    }
+
+    public function assembleParts(string $uploadId, array $partNumbers, int $expectedBytes): StagedObject
+    {
+        $tmpPath = $this->root . '/tmp/' . bin2hex(random_bytes(16));
+        $out = fopen($tmpPath, 'x+b');
+        if ($out === false) {
+            throw S3Exception::internalError('unable to create staging file');
+        }
+
+        $md5 = hash_init('md5');
+        $sha = hash_init('sha256');
+        $size = 0;
+
+        try {
+            foreach ($partNumbers as $partNumber) {
+                $in = $this->openPart($uploadId, $partNumber);
+                try {
+                    while (!feof($in)) {
+                        $chunk = fread($in, 65536);
+                        if ($chunk === false) {
+                            throw S3Exception::internalError('read error on part');
+                        }
+                        if ($chunk === '') {
+                            continue;
+                        }
+                        $size += strlen($chunk);
+                        hash_update($md5, $chunk);
+                        hash_update($sha, $chunk);
+                        fwrite($out, $chunk);
+                    }
+                } finally {
+                    fclose($in);
+                }
+            }
+            fflush($out);
+        } catch (\Throwable $e) {
+            fclose($out);
+            @unlink($tmpPath);
+            throw $e;
+        }
+        fclose($out);
+
+        if ($size !== $expectedBytes) {
+            @unlink($tmpPath);
+            throw S3Exception::incompleteBody((string) $expectedBytes, (string) $size);
+        }
+
+        return new StagedObject(
+            tmpPath: $tmpPath,
+            size: $size,
+            md5: hash_final($md5),
+            sha256: hash_final($sha),
+        );
+    }
+
+    public function deleteParts(string $uploadId): void
+    {
+        $dir = $this->partsDir($uploadId, 1, create: false);
+        if ($dir === null || !is_dir($dir)) {
+            return; // idempotent
+        }
+        foreach (glob($dir . '/*') ?: [] as $part) {
+            if (is_file($part)) {
+                @unlink($part);
+            }
+        }
+        @rmdir($dir);
+    }
+
     /* ---------------------------------------------------------- helpers */
+
+    /**
+     * Validate the server-minted upload token + part number and return the
+     * parts directory (created on demand). Both inputs are untrusted here —
+     * the regexes are the containment guarantee.
+     */
+    private function partsDir(string $uploadId, int $partNumber, bool $create = true): ?string
+    {
+        if (!preg_match('/^[a-f0-9]{32}$/', $uploadId)
+            || $partNumber < 1 || $partNumber > 10000
+        ) {
+            throw S3Exception::noSuchUpload();
+        }
+
+        $dir = $this->root . '/parts/' . $uploadId;
+        if ($create && !is_dir($dir) && !@mkdir($dir, 0750, true) && !is_dir($dir)) {
+            throw S3Exception::internalError('unable to create part directory');
+        }
+
+        return $dir;
+    }
 
     /**
      * Deterministic sharded relative path: sha256(key) → ab/cd/{uuid}.
