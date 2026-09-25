@@ -377,8 +377,22 @@ Pipeline (opsfour semantics, plain PHP):
 7. Payload verification policy: `UNSIGNED-PAYLOAD` → accepted (TLS assumed); concrete
    sha256 → verified against the hash computed **while streaming the body to disk**
    (mismatch → `XAmzContentSHA256Mismatch`, object not committed); `STREAMING-*` chunked
-   framing → Phase 4 (decode + per-chunk verify; until then `NotImplemented`).
-   `Content-MD5`, when present, is verified in the same streaming pass.
+   framing → decoded and verified per chunk (below). `Content-MD5`, when present, is
+   verified in the same streaming pass.
+
+**aws-chunked (implemented).** Header-mode auth accepts the three streaming sentinels
+(`STREAMING-AWS4-HMAC-SHA256-PAYLOAD`, `-TRAILER`, `STREAMING-UNSIGNED-PAYLOAD-TRAILER`),
+requires `x-amz-decoded-content-length`, and for signed modes returns the request's own
+signature as the **chunk-chain seed**. `S3\ChunkedDecoder` is a PHP stream filter that
+parses the framing (`<hex>;chunk-signature=<64hex>\r\n<data>\r\n` … `0;chunk-signature=…\r\n`
++ trailers), recomputes each chunk's chained HMAC
+(`AWS4-HMAC-SHA256-PAYLOAD` string-to-sign seeded by the previous signature) and reports
+`SignatureDoesNotMatch`/`IncompleteBody` through a shared state object; handlers run
+`ChunkedDecoder::assertValid` **before** payload/length checks so a bad signature wins
+over a short read, then strip the `aws-chunked` token from the stored `Content-Encoding`.
+PHP injects `$filtername`/`$params` onto the filter object (there is no constructor), and
+decoded output rides on reused input buckets because `stream_bucket_new()` demands a real
+stream, not a brigade.
 
 Errors: `SignatureDoesNotMatch` 403, `AccessDenied` 403, `InvalidAccessKeyId` 403,
 `AuthorizationHeaderMalformed` 400, `RequestTimeTooSkewed` 400 — matching AWS codes/statuses
@@ -396,11 +410,15 @@ exactly (clients branch on them).
 - Bucket-level ACLs, policies, public objects: Phase "Advanced" (presigned URLs cover most
   sharing needs earlier).
 
-### 6.3 Presigned URLs (Phase 4)
+### 6.3 Presigned URLs (Phase 4 — implemented)
 
 Same canonical machinery with query params (`X-Amz-Credential`, `X-Amz-Date`,
 `X-Amz-Expires` ∈ [1, 604800], `X-Amz-SignedHeaders`, `X-Amz-Signature`), payload slot =
 `UNSIGNED-PAYLOAD`, signature excludes `X-Amz-Signature` itself, expiry enforced server-side.
+The received query is **re-canonicalized server-side** (raw query minus
+`X-Amz-Signature` through `canonicalQueryString()`: sort + RFC 3986 re-encode) so clients
+that emit unsorted or differently-encoded params still verify — clients must never rewrite
+`X-Amz-*` params after signing.
 
 ---
 
@@ -423,13 +441,23 @@ support-matrix pattern).
 | Ops | Web installer, minimal admin (login, keys, buckets, usage), CLI `migrate`/`gc` |
 
 ### Core S3 compatibility (Phase 4)
-- Presigned URLs (GET/PUT), `DeleteObjects` (batch), `ListParts`, multipart suite:
-  `CreateMultipartUpload`, `UploadPart`, `CompleteMultipartUpload` (AWS-format ETag),
-  `AbortMultipartUpload`, `ListMultipartUploads`.
-- `aws-chunked` decoding (+ per-chunk signature verification), checksum headers
-  (`x-amz-checksum-*`), conditional requests (`If-Match`/`If-None-Match`/`If-Modified-Since`).
-- Compatibility suites: PHP (real server + `aws/aws-sdk-php`) and Python (`boto3`), plus
-  rclone/AWS CLI smoke docs; SDK support-matrix CI test.
+Status is tracked operation-by-operation in `docs/S3-COMPATIBILITY.md`; a feature counts
+as supported only when a test proves it through a real client.
+
+**Done (this phase so far)**
+- Presigned URLs (GET/PUT, expiry, unsorted-query canonicalization), `DeleteObjects`
+  (batch, Quiet), full multipart suite: `CreateMultipartUpload`, `UploadPart`,
+  `CompleteMultipartUpload` (AWS-format composite ETag `md5(concat(part etags))-N`),
+  `AbortMultipartUpload`, `ListMultipartUploads`, `ListParts`.
+- `aws-chunked` decoding with per-chunk signature verification (header and unsigned-trailer
+  framing), proven by unit tests plus a raw-wire fsockopen smoke (signed PUT round-trip +
+  tampered-chunk → 403).
+
+**Remaining**
+- Checksum headers (`x-amz-checksum-*`), conditional requests
+  (`If-Match`/`If-None-Match`/`If-Modified-Since`).
+- Compatibility suites: Python (`boto3`), plus rclone/AWS CLI smoke docs; SDK
+  support-matrix CI test (PHP suite with `aws/aws-sdk-php` already runs in the smoke).
 
 ### Advanced (Phase 5)
 - Rate limiting, storage quotas, audit log, admin usage dashboard detail, per-bucket CORS
