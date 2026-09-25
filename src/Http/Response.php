@@ -98,13 +98,16 @@ final class Response
     public function send(): void
     {
         if (!headers_sent()) {
+            // Status before custom headers: header('Location: ...') forces an
+            // implicit 302 when no status is set yet, and overriding that back to
+            // 200 afterwards makes LiteSpeed/LSAPI return a bare 500 (observed on
+            // Hostinger). An explicit code set up front is respected (302 stays
+            // 302 for redirects).
+            $reason = self::REASONS[$this->status] ?? 'Status';
+            header('HTTP/1.1 ' . $this->status . ' ' . $reason, true, $this->status);
             foreach ($this->headers as $name => $value) {
                 header($name . ': ' . $value, true);
             }
-            // Status must be set AFTER custom headers: a Location header forces a
-            // 302 on PHP unless 201/3xx is already set (CreateBucket returns 200 + Location).
-            $reason = self::REASONS[$this->status] ?? 'Status';
-            header('HTTP/1.1 ' . $this->status . ' ' . $reason, true, $this->status);
             if (!isset($this->headers['X-Request-Id'])) {
                 header('X-Request-Id: ' . ($_SERVER['PHPS3_REQUEST_ID'] ?? '-'));
             }

@@ -66,12 +66,16 @@ final class BucketHandler
             @mkdir($location, 0750, true);
         }
 
-        $headers = ['Location' => '/' . $bucket];
+        $headers = [];
         if ($this->regionNeedsLocationConstraint()) {
             $headers['Content-Type'] = 'application/xml';
         }
 
         // us-east-1 returns 200 with empty body; other regions echo LocationConstraint.
+        // AWS also sends a Location header here, but PHP cannot emit 200 + Location:
+        // header('Location: ...') forces a 302 unless the status is 201/3xx, and
+        // forcing the code back to 200 afterwards makes LiteSpeed/LSAPI answer a bare
+        // 500 (observed on Hostinger shared hosting). Clients only need the 200.
         $body = $this->regionNeedsLocationConstraint()
             ? '<?xml version="1.0" encoding="UTF-8"?><CreateBucketConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><LocationConstraint>'
                 . htmlspecialchars($this->region(), ENT_XML1) . '</LocationConstraint></CreateBucketConfiguration>'
