@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Admin;
+namespace PhpS3\Admin;
 
-use MiniS3\Meta\Database;
-use MiniS3\Support\IpAddress;
+use PhpS3\Meta\Database;
+use PhpS3\Support\IpAddress;
 
 /**
  * Admin audit log — pattern adapted from PHP-Auth's users_audit_log

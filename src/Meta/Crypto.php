@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Meta;
+namespace PhpS3\Meta;
 
 /**
  * AES-256-GCM encryption for S3 secrets at rest.
@@ -26,7 +26,7 @@ final class Crypto
 
     public static function fromAppConfig(): self
     {
-        $c = minis3_config();
+        $c = php_s3_config();
         $key = $c['secret_key'] ?? '';
         if (!is_string($key) || $key === '') {
             throw new \RuntimeException('config secret_key is missing');

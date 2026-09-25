@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Tests\Unit;
+namespace PhpS3\Tests\Unit;
 
-use MiniS3\Auth\AuthContext;
-use MiniS3\Auth\Authenticator;
-use MiniS3\Auth\CredentialProvider;
-use MiniS3\Auth\SigningKey;
-use MiniS3\S3\Exception\S3Exception;
+use PhpS3\Auth\AuthContext;
+use PhpS3\Auth\Authenticator;
+use PhpS3\Auth\CredentialProvider;
+use PhpS3\Auth\SigningKey;
+use PhpS3\S3\Exception\S3Exception;
 use PHPUnit\Framework\TestCase;
 
 final class AuthenticatorTest extends TestCase
@@ -82,7 +82,7 @@ final class AuthenticatorTest extends TestCase
             array_values($q),
         ));
 
-        $request = minis3_test_request(
+        $request = php_s3_test_request(
             'GET',
             ($parts['path'] ?? '/bucket/obj.txt') . '?' . $qs,
             ['host' => self::HOST],
@@ -103,11 +103,11 @@ final class AuthenticatorTest extends TestCase
             'x-amz-content-sha256' => $payload,
         ];
         $signed = ['host', 'x-amz-content-sha256', 'x-amz-date'];
-        $canonical = \MiniS3\Auth\CanonicalRequest::build('GET', '/bucket/obj.txt', '', $headers, $signed, $payload);
+        $canonical = \PhpS3\Auth\CanonicalRequest::build('GET', '/bucket/obj.txt', '', $headers, $signed, $payload);
         $stringToSign = SigningKey::stringToSign('AWS4-HMAC-SHA256', $amzDate, $scope, hash('sha256', $canonical));
         $signature = SigningKey::signature(SigningKey::derive(self::SECRET, $shortDate, 'us-east-1', 's3'), $stringToSign);
 
-        $request = minis3_test_request('GET', '/bucket/obj.txt', [
+        $request = php_s3_test_request('GET', '/bucket/obj.txt', [
             'host' => self::HOST,
             'x-amz-date' => $amzDate,
             'x-amz-content-sha256' => $payload,
@@ -169,7 +169,7 @@ final class AuthenticatorTest extends TestCase
         $this->assertAuthError(fn () => $this->auth->authenticate($request), 'InvalidRequest');
     }
 
-    /** @return array{0: \MiniS3\Http\Request, 1: string, 2: string} request, signature, amzDate */
+    /** @return array{0: \PhpS3\Http\Request, 1: string, 2: string} request, signature, amzDate */
     private function signedHeaderRequest(string $payload, array $extraHeaders, string $method = 'PUT', string $uri = '/bucket/chunked.bin'): array
     {
         $amzDate = gmdate('Ymd\THis\Z');
@@ -181,7 +181,7 @@ final class AuthenticatorTest extends TestCase
             'x-amz-content-sha256' => $payload,
         ], $extraHeaders);
         $signed = ['host', 'x-amz-content-sha256', 'x-amz-date'];
-        $canonical = \MiniS3\Auth\CanonicalRequest::build($method, $uri, '', $headers, $signed, $payload);
+        $canonical = \PhpS3\Auth\CanonicalRequest::build($method, $uri, '', $headers, $signed, $payload);
         $stringToSign = SigningKey::stringToSign('AWS4-HMAC-SHA256', $amzDate, $scope, hash('sha256', $canonical));
         $signature = SigningKey::signature(SigningKey::derive(self::SECRET, $shortDate, 'us-east-1', 's3'), $stringToSign);
         $headers['authorization'] = sprintf(
@@ -192,7 +192,7 @@ final class AuthenticatorTest extends TestCase
             $signature,
         );
 
-        return [minis3_test_request($method, $uri, $headers), $signature, $amzDate];
+        return [php_s3_test_request($method, $uri, $headers), $signature, $amzDate];
     }
 
     /* ---------------------------------------------------------- failures */
@@ -229,7 +229,7 @@ final class AuthenticatorTest extends TestCase
 
     public function testMissingSignatureParameterRejected(): void
     {
-        $request = minis3_test_request('GET', $this->presignedUri('GET', '/bucket/obj.txt', signature: ''), ['host' => self::HOST]);
+        $request = php_s3_test_request('GET', $this->presignedUri('GET', '/bucket/obj.txt', signature: ''), ['host' => self::HOST]);
 
         $e = $this->assertAuthError(fn () => $this->auth->authenticate($request), 'AuthorizationQueryParametersError');
         self::assertStringContainsString('X-Amz-Signature', $e->awsMessage);
@@ -238,7 +238,7 @@ final class AuthenticatorTest extends TestCase
     public function testWrongAlgorithmRejected(): void
     {
         $uri = $this->presignedUri('GET', '/bucket/obj.txt', algorithm: 'AWS4-HMAC-SHA1');
-        $request = minis3_test_request('GET', $uri, ['host' => self::HOST]);
+        $request = php_s3_test_request('GET', $uri, ['host' => self::HOST]);
 
         $this->assertAuthError(fn () => $this->auth->authenticate($request), 'AuthorizationQueryParametersError');
     }
@@ -246,14 +246,14 @@ final class AuthenticatorTest extends TestCase
     public function testUnknownAccessKeyIdRejected(): void
     {
         $uri = $this->presignedUri('GET', '/bucket/obj.txt', akid: 'AKIADKNOTEXIST00000');
-        $request = minis3_test_request('GET', $uri, ['host' => self::HOST]);
+        $request = php_s3_test_request('GET', $uri, ['host' => self::HOST]);
 
         $this->assertAuthError(fn () => $this->auth->authenticate($request), 'InvalidAccessKeyId');
     }
 
     public function testNoAuthAtAllStillRequiresAuthorizationHeader(): void
     {
-        $request = minis3_test_request('GET', '/bucket/obj.txt', ['host' => self::HOST]);
+        $request = php_s3_test_request('GET', '/bucket/obj.txt', ['host' => self::HOST]);
 
         $this->assertAuthError(fn () => $this->auth->authenticate($request), 'MissingSecurityHeader');
     }
@@ -262,7 +262,7 @@ final class AuthenticatorTest extends TestCase
 
     private function presignedRequest(string $method, string $uri, array $extraQuery = [], ?string $date = null, ?int $expires = null, ?string $signature = null, string $akid = self::AKID, string $algorithm = 'AWS4-HMAC-SHA256')
     {
-        return minis3_test_request($method, $this->presignedUri($method, $uri, $extraQuery, $date, $expires, $signature, $akid, $algorithm), ['host' => self::HOST]);
+        return php_s3_test_request($method, $this->presignedUri($method, $uri, $extraQuery, $date, $expires, $signature, $akid, $algorithm), ['host' => self::HOST]);
     }
 
     private function presignedUri(
@@ -294,10 +294,10 @@ final class AuthenticatorTest extends TestCase
                 array_keys($params),
                 array_values($params),
             ));
-            $canonical = \MiniS3\Auth\CanonicalRequest::build(
+            $canonical = \PhpS3\Auth\CanonicalRequest::build(
                 $method,
-                \MiniS3\Auth\CanonicalRequest::canonicalUri($uri),
-                \MiniS3\Auth\CanonicalRequest::canonicalQueryString($qs),
+                \PhpS3\Auth\CanonicalRequest::canonicalUri($uri),
+                \PhpS3\Auth\CanonicalRequest::canonicalQueryString($qs),
                 ['host' => self::HOST],
                 ['host'],
                 'UNSIGNED-PAYLOAD',

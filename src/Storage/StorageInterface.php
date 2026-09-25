@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Storage;
+namespace PhpS3\Storage;
 
 /**
  * Byte storage abstraction. Object keys NEVER reach the filesystem as paths —
@@ -16,7 +16,7 @@ interface StorageInterface
      * Verifies byte count against $expectedBytes when given.
      *
      * @param resource $inputStream
-     * @throws \MiniS3\S3\Exception\S3Exception on size mismatch / IO failure
+     * @throws \PhpS3\S3\Exception\S3Exception on size mismatch / IO failure
      */
     public function stage($inputStream, ?int $expectedBytes): StagedObject;
 
@@ -32,7 +32,7 @@ interface StorageInterface
     /**
      * Open a stored object for reading. Caller closes the handle.
      * @return resource
-     * @throws \MiniS3\S3\Exception\S3Exception NoSuchKey when missing
+     * @throws \PhpS3\S3\Exception\S3Exception NoSuchKey when missing
      */
     public function open(string $bucket, string $storagePath);
 
@@ -59,7 +59,7 @@ interface StorageInterface
      * Move a staged part into the multipart area: {root}/parts/{uploadId}/{partNumber}.
      * uploadId is a server-minted 32-hex token; anything else is rejected.
      *
-     * @throws \MiniS3\S3\Exception\S3Exception NoSuchUpload on bad uploadId/partNumber
+     * @throws \PhpS3\S3\Exception\S3Exception NoSuchUpload on bad uploadId/partNumber
      */
     public function commitPart(string $uploadId, int $partNumber, StagedObject $staged): void;
 
@@ -67,7 +67,7 @@ interface StorageInterface
      * Open an uploaded part. Caller closes the handle.
      *
      * @return resource
-     * @throws \MiniS3\S3\Exception\S3Exception InvalidPart when the part file is missing
+     * @throws \PhpS3\S3\Exception\S3Exception InvalidPart when the part file is missing
      */
     public function openPart(string $uploadId, int $partNumber);
 
@@ -76,7 +76,7 @@ interface StorageInterface
      * Verifies the total against $expectedBytes (assembled size guard).
      *
      * @param list<int> $partNumbers
-     * @throws \MiniS3\S3\Exception\S3Exception InvalidPart / IncompleteBody / IO failure
+     * @throws \PhpS3\S3\Exception\S3Exception InvalidPart / IncompleteBody / IO failure
      */
     public function assembleParts(string $uploadId, array $partNumbers, int $expectedBytes): StagedObject;
 

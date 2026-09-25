@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\S3;
+namespace PhpS3\S3;
 
-use MiniS3\S3\Exception\S3Exception;
+use PhpS3\S3\Exception\S3Exception;
 
 /**
  * Validation of every input that is (or maps to) a path. Used by ALL

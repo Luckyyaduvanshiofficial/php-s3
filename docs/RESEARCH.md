@@ -1,7 +1,7 @@
 # Phase 1 — Research: Analysis of Reference Projects
 
 Four open-source S3/object-storage projects were collected in this workspace and studied in
-full source before any mini-s3 code was written. This document records what each project does,
+full source before any php-s3 code was written. This document records what each project does,
 what is worth taking, and what must be left behind.
 
 Studied projects:
@@ -14,7 +14,7 @@ Studied projects:
 | **simple-php-s3-server** | `simple-php-s3-server/` | Lightweight S3 gateway, pure filesystem, no database, SigV4 |
 
 > These directories are **research material only** and are excluded from version control.
-> No code was copied verbatim; ideas were evaluated and re-implemented in mini-s3's own design.
+> No code was copied verbatim; ideas were evaluated and re-implemented in php-s3's own design.
 
 ---
 
@@ -58,7 +58,7 @@ Studied projects:
    parts portable from Amp to plain PHP. *Adopted as a design rule: no class outside `Http/`
    may read `$_SERVER` directly.*
 5. **Single stack, single entrypoint** (anti-lite-s3): lite-s3 shipped two divergent codebases
-   and wired the worse one. mini-s3 has exactly one request path. *Adopted as a hard rule.*
+   and wired the worse one. php-s3 has exactly one request path. *Adopted as a hard rule.*
 
 ### 2.2 Best authentication implementation
 
@@ -71,12 +71,12 @@ Studied projects:
 - Presigned: 7-day (604800 s) hard cap, exact 5-part credential scope, `host` required.
 
 simple-php's implementation is the most portable (plain PHP, same algorithm) but has three
-gaps mini-s3 must not inherit: `host` not required in SignedHeaders, `x-amz-content-sha256`
+gaps php-s3 must not inherit: `host` not required in SignedHeaders, `x-amz-content-sha256`
 never verified against the actual body, and a vacuous timestamp fallback when `X-Amz-Date`
 is missing. lite-s3 demonstrates the failure mode to avoid: a correct SigV4 class written
 and then never invoked, behind a "simple auth" flag that defaults to ON.
 
-**mini-s3 decision:** implement SigV4 from scratch following the opsfour pipeline semantics in
+**php-s3 decision:** implement SigV4 from scratch following the opsfour pipeline semantics in
 plain PHP, no bypass flags, verify payload hash against the streamed body when the header
 declares a concrete hash, always require signed `host`. No "simple auth" mode ever.
 
@@ -115,7 +115,7 @@ Anti-patterns observed: lite-s3 stores blobs under `WWW/storage/` with no `.htac
 (objects world-downloadable, `.php` objects executable → RCE); buckie keeps no metadata at
 all (client `Content-Type` silently discarded).
 
-**mini-s3 decision:** hash-sharded layout from opsfour; buckets as directories named by their
+**php-s3 decision:** hash-sharded layout from opsfour; buckets as directories named by their
 (validated) S3 bucket name; all blob paths under a data root outside the web root; DB is the
 only source of truth for key → path mapping.
 
@@ -159,7 +159,7 @@ signed headers (cross-host replay).
   `wait_timeout` can close an idle connection during a multi-minute upload; re-connect (ping)
   before writing metadata. A production lesson worth its space.
 - **Missing everywhere:** buckie has no Range support at all; lite-s3's Range exists only in
-  the unwired stack. mini-s3 ships Range/206 from MVP because video seeking and resumable
+  the unwired stack. php-s3 ships Range/206 from MVP because video seeking and resumable
   downloads are core use cases on shared hosting.
 
 ### 2.7 Multipart upload implementations
@@ -177,7 +177,7 @@ signed headers (cross-host replay).
   right shared-hosting shape; lite-s3 leaks part directories forever (abort deletes only the
   DB row); opsfour coordinates GC through the metadata store (needs a worker — not portable).
 - **Known flaw to fix:** simple-php does not bind uploadId → object key, so any uploadId can
-  be completed against any key. mini-s3 stores the binding in `multipart_uploads` and checks
+  be completed against any key. php-s3 stores the binding in `multipart_uploads` and checks
   it on uploadPart/complete/abort/listParts.
 
 ### 2.8 Presigned URL implementations
@@ -189,7 +189,7 @@ signed headers (cross-host replay).
 - lite-s3 is the cautionary tale: three partial implementations, none wired, generator that
   emits URLs **without any signature**. README claimed "✅ Complete".
 
-mini-s3: one implementation, header-mode and query-mode sharing the same canonical-request
+php-s3: one implementation, header-mode and query-mode sharing the same canonical-request
 code path; expiry enforced; `host` always signed.
 
 ### 2.9 Metadata/database designs
@@ -200,7 +200,7 @@ code path; expiry enforced; `host` always signed.
 - **What to store:** lite-s3's schema shows both extremes — useful tables (`users`,
   `buckets`, `objects`, `permissions`, `multipart_*`) and dead weight (5+ never-written
   tables, duplicate `mime_type`/`content_type`, plaintext secret column, string FK for
-  `multipart_uploads.bucket`). mini-s3 ships only tables it enforces.
+  `multipart_uploads.bucket`). php-s3 ships only tables it enforces.
 - **Key encoding insight:** S3 keys are up to 1024 *bytes* ordered by UTF-8 byte order.
   Storing them as `VARBINARY(1024)` in MySQL gives (a) exact byte-order indexing matching
   S3's lexicographic listing, (b) an index that fits InnoDB's 3072-byte key limit
@@ -214,13 +214,13 @@ code path; expiry enforced; `host` always signed.
 
 - opsfour's **exception class hierarchy** (`S3Exception` subclasses carrying code + HTTP
   status + extra headers, one catch site emitting XML) is the pattern; simple-php's factory
-  methods (`S3Exception::noSuchKey()`) are the lightweight version. mini-s3 combines both:
+  methods (`S3Exception::noSuchKey()`) are the lightweight version. php-s3 combines both:
   small hierarchy, factories, single catch boundary in the front controller.
 - 304 must have an empty body (opsfour special-cases it).
 - Every error body: `<Error><Code>…</Code><Message>…</Message><RequestId>…</RequestId></Error>`,
   all interpolated fields XML-escaped; generic `InternalError` to clients, detail to log only.
 - Success XML roots carry `xmlns="http://s3.amazonaws.com/doc/2006-03-01/"`; note simple-php's
-  empirical finding that *error* XML without xmlns parsed more reliably in boto3 — mini-s3
+  empirical finding that *error* XML without xmlns parsed more reliably in boto3 — php-s3
   resolves this by testing both forms against real boto3/AWS SDK in CI rather than guessing.
 
 ### 2.11 Validation and path-traversal protection
@@ -248,7 +248,7 @@ Combined rule set (see 2.5 for sources), applied at exactly one chokepoint each:
   lite-s3's dual `SetEnvIf` + rewrite-env form is the most robust.
 - **Web installer wizard** (lite-s3 `install.php`): requirement self-check matrix, one-time
   secret display, `.installed` guard, "delete installer" reminder — the right UX for
-  non-technical users; mini-s3 keeps this but with one config generator only.
+  non-technical users; php-s3 keeps this but with one config generator only.
 - **Cron, not daemons**: simple-php's single `cleanup_multipart.php` cron entry is the only
   background-work pattern that fits shared hosting.
 
@@ -262,10 +262,10 @@ Combined rule set (see 2.5 for sources), applied at exactly one chokepoint each:
 3. **Best honesty mechanism:** opsfour's **SDK support matrix test** — enumerate every
    operation in the installed `aws/aws-sdk-php`, assert each is classified supported/unsupported;
    CI fails when a new SDK release adds operations. "Supported" becomes an assertion, not a
-   README claim. mini-s3 adopts this pattern.
+   README claim. php-s3 adopts this pattern.
 4. buckie's **router test harness** (subclass front controller, capture status/headers/body
    via overridable emitters) makes the HTTP layer unit-testable under plain PHPUnit.
-5. What nobody did and mini-s3 must: run *both* suites on every push (simple-php ran PHPUnit
+5. What nobody did and php-s3 must: run *both* suites on every push (simple-php ran PHPUnit
    only on tag push; lite-s3 had no tests at all).
 
 ### 2.14 Features that should NOT be copied
@@ -324,12 +324,12 @@ outside the comparison table above.
 | **Structure** | `Auth.php` (3 099-line facade), `UserManager`, `Administration`, `PasswordHash`, `TokenHash`, `IpAddress`, `Database/{MySQL,PostgreSQL,SQLite}.sql` |
 | **Features** | registration, login, password reset, e-mail verification, 2FA/TOTP, remember-me, token-bucket login throttling, audit log, force-logout, session hardening |
 
-mini-s3 keeps its **zero-runtime-dependency** rule, so the package itself is *never* installed.
+php-s3 keeps its **zero-runtime-dependency** rule, so the package itself is *never* installed.
 Instead the following concepts were re-implemented in our own typed code:
 
-| Concept (PHP-Auth) | Where in mini-s3 | How |
+| Concept (PHP-Auth) | Where in php-s3 | How |
 |---|---|---|
-| Token-bucket throttling (`throttle()` + `users_throttling`) | `src/Admin/Throttle.php`, migration **v2** (`auth_throttling`) | Same algorithm (capacity = burst × supply, linear refill, base64url-SHA-256 bucket key); ours is a 60-line class over our `Database` layer. Applied **per IP** (10/h) and **per username** (5/15 min) *before* credential check; username bucket reset on success so users cannot self-lock; expired buckets purged by `mini-s3 gc` |
+| Token-bucket throttling (`throttle()` + `users_throttling`) | `src/Admin/Throttle.php`, migration **v2** (`auth_throttling`) | Same algorithm (capacity = burst × supply, linear refill, base64url-SHA-256 bucket key); ours is a 60-line class over our `Database` layer. Applied **per IP** (10/h) and **per username** (5/15 min) *before* credential check; username bucket reset on success so users cannot self-lock; expired buckets purged by `php-s3 gc` |
 | Audit log (`users_audit_log`) | `src/Admin/AuditLog.php`, migration **v2** (`audit_log`) | Event type + user + **masked IP** (`/24` v4, `/80` v6) + SHA-256 user-agent + JSON details. Records login success/failure/throttle, logout, key create/toggle/delete, bucket create/delete. Never records secrets; auditing failure never breaks the request |
 | IP masking (`IpAddress::mask()`) | `src/Support/IpAddress.php` | Adapted directly (MIT attribution in file header): keeps network prefix, zeroes host part |
 | Rehash-on-login (`password_needs_rehash`) | `Meta/UserRepository::verify()` | Transparent bcrypt → future-algorithm upgrade on successful login, best-effort |

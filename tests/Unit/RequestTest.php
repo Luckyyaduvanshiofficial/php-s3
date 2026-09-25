@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Tests\Unit;
+namespace PhpS3\Tests\Unit;
 
-use MiniS3\Http\Request;
+use PhpS3\Http\Request;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -18,7 +18,7 @@ final class RequestTest extends TestCase
     #[DataProvider('contentTypeOrderProvider')]
     public function testContentTypeNotDuplicatedWhenBothServerVarsPresent(string $first): void
     {
-        minis3_test_request('PUT', '/b/k.txt');
+        php_s3_test_request('PUT', '/b/k.txt');
         if ($first === 'content_type') {
             $_SERVER['CONTENT_TYPE'] = 'text/plain';
             $_SERVER['HTTP_CONTENT_TYPE'] = 'text/plain';
@@ -43,7 +43,7 @@ final class RequestTest extends TestCase
 
     public function testHttpOnlyContentTypeIsStillSeen(): void
     {
-        minis3_test_request('PUT', '/b/k.txt');
+        php_s3_test_request('PUT', '/b/k.txt');
         unset($_SERVER['CONTENT_TYPE']);
         $_SERVER['HTTP_CONTENT_TYPE'] = 'application/octet-stream';
 
@@ -54,7 +54,7 @@ final class RequestTest extends TestCase
 
     public function testContentLengthNotDuplicated(): void
     {
-        $r = minis3_test_request('PUT', '/b/k.txt', ['Content-Length' => '11']);
+        $r = php_s3_test_request('PUT', '/b/k.txt', ['Content-Length' => '11']);
         $_SERVER['HTTP_CONTENT_LENGTH'] = '11';
 
         $r = Request::fromGlobals();
@@ -64,7 +64,7 @@ final class RequestTest extends TestCase
 
     public function testAuthorizationFallbackFromRedirectVar(): void
     {
-        minis3_test_request('GET', '/');
+        php_s3_test_request('GET', '/');
         unset($_SERVER['HTTP_AUTHORIZATION']);
         $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] = 'AWS4-HMAC-SHA256 Credential=x';
 

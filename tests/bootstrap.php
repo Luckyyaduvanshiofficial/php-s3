@@ -11,13 +11,13 @@ require dirname(__DIR__) . '/src/bootstrap.php';
  *
  * @param array<string, string> $headers lowercased or normal-cased (HTTP_ mapping is applied)
  */
-function minis3_test_request(
+function php_s3_test_request(
     string $method,
     string $uri,
     array $headers = [],
     string $remoteAddr = '127.0.0.1',
     bool $isHttps = false,
-): MiniS3\Http\Request {
+): PhpS3\Http\Request {
     $qpos = strpos($uri, '?');
     $rawPath = $qpos === false ? $uri : substr($uri, 0, $qpos);
 
@@ -40,5 +40,5 @@ function minis3_test_request(
         $_SERVER[$n] = $value;
     }
 
-    return MiniS3\Http\Request::fromGlobals();
+    return PhpS3\Http\Request::fromGlobals();
 }

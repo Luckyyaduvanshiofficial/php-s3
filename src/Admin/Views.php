@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Admin;
+namespace PhpS3\Admin;
 
-use MiniS3\Http\Response;
+use PhpS3\Http\Response;
 
 /** Minimal server-rendered admin templates (no framework, no build step). */
 final class Views
@@ -38,7 +38,7 @@ CSS;
     public static function login(?string $error): Response
     {
         $csrf = self::sessionCsrf();
-        $html = self::layout('Sign in — mini-s3', '
+        $html = self::layout('Sign in — php-s3', '
         <div class="card" style="max-width:420px;margin:3rem auto;">
             <h1>Sign in</h1>
             ' . ($error ? '<div class="err">' . self::e($error) . '</div>' : '') . '
@@ -66,9 +66,9 @@ CSS;
         $errorHtml = $errors ? '<div class="err"><ul><li>' .
             implode('</li><li>', array_map(self::e(...), $errors)) . '</li></ul></div>' : '';
 
-        $html = self::layout('Install — mini-s3', '
+        $html = self::layout('Install — php-s3', '
         <div class="card">
-            <h1>Install mini-s3</h1>
+            <h1>Install php-s3</h1>
             ' . $errorHtml . '
             <h2>Environment</h2>
             <table><tr><th>Check</th><th>Status</th><th>Detail</th></tr>' . $rows . '</table>
@@ -79,7 +79,7 @@ CSS;
                 <label>Data root (absolute path, OUTSIDE the web root)</label>
                 <input name="data_root" value="' . self::e(dirname(__DIR__, 2) . '/data') . '" required>
                 <label>Database DSN (MySQL/MariaDB)</label>
-                <input name="db_dsn" placeholder="mysql:host=127.0.0.1;dbname=minis3;charset=utf8mb4" required>
+                <input name="db_dsn" placeholder="mysql:host=127.0.0.1;dbname=php_s3;charset=utf8mb4" required>
                 <label>Database username</label><input name="db_username" required>
                 <label>Database password</label><input name="db_password" type="password">
                 <div class="inline">
@@ -129,7 +129,7 @@ CSS;
             $infoRows .= '<tr><td>' . self::e((string) $k) . '</td><td>' . self::e((string) $v) . '</td></tr>';
         }
 
-        $html = self::layout('Dashboard — mini-s3', '
+        $html = self::layout('Dashboard — php-s3', '
         ' . ($flash ? '<div class="flash">' . self::e((string) $flash) . '</div>' : '') . '
         <div class="card">
             <h1>Buckets</h1>
@@ -189,7 +189,7 @@ CSS;
             $rows = '<tr><td colspan="6" class="muted">No access keys yet.</td></tr>';
         }
 
-        $html = self::layout('Access keys — mini-s3', '
+        $html = self::layout('Access keys — php-s3', '
         ' . ($flash ? '<div class="flash">' . self::e((string) $flash) . '</div>' : '') . '
         <div class="card">
             <h1>Access keys</h1>
@@ -216,7 +216,7 @@ CSS;
     {
         $minutes = max(1, (int) ceil($retryAfter / 60));
 
-        return self::layout('Too many attempts — mini-s3', '
+        return self::layout('Too many attempts — php-s3', '
         <div class="card" style="max-width:420px;margin:3rem auto;">
             <h1>Too many attempts</h1>
             <p>Too many sign-in attempts. Try again in about
@@ -228,14 +228,14 @@ CSS;
 
     public static function error(string $message): Response
     {
-        return Response::html(500, self::layout('Error — mini-s3',
+        return Response::html(500, self::layout('Error — php-s3',
             '<div class="card"><h1>Error</h1><div class="err">' . self::e($message) . '</div>'
             . '<p><a href="/_admin">Back</a></p></div>'));
     }
 
     public static function notFound(): Response
     {
-        return Response::html(404, self::layout('Not found — mini-s3',
+        return Response::html(404, self::layout('Not found — php-s3',
             '<div class="card"><h1>404</h1><p><a href="/_admin">Back to dashboard</a></p></div>'));
     }
 
@@ -252,7 +252,7 @@ CSS;
         return '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
             . '<title>' . self::e($title) . '</title><style>' . self::CSS . '</style></head><body>'
-            . '<header class="top"><strong>mini-s3</strong> ' . $nav . '</header>'
+            . '<header class="top"><strong>php-s3</strong> ' . $nav . '</header>'
             . '<main>' . $body . '</main></body></html>';
     }
 

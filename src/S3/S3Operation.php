@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\S3;
+namespace PhpS3\S3;
 
 /**
  * Every supported (and planned) S3 operation, resolved from

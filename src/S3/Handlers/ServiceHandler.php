@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\S3\Handlers;
+namespace PhpS3\S3\Handlers;
 
-use MiniS3\Auth\AuthContext;
-use MiniS3\Http\Request;
-use MiniS3\Http\Response;
-use MiniS3\Meta\BucketRepository;
-use MiniS3\S3\BucketNameValidator;
-use MiniS3\S3\Exception\S3Exception;
-use MiniS3\S3\Xml\Xml;
-use MiniS3\Storage\StorageInterface;
+use PhpS3\Auth\AuthContext;
+use PhpS3\Http\Request;
+use PhpS3\Http\Response;
+use PhpS3\Meta\BucketRepository;
+use PhpS3\S3\BucketNameValidator;
+use PhpS3\S3\Exception\S3Exception;
+use PhpS3\S3\Xml\Xml;
+use PhpS3\Storage\StorageInterface;
 
 /** Service-scope operations (ListBuckets). */
 final class ServiceHandler
 {
     public function __construct(
         private readonly BucketRepository $buckets,
-        private readonly \MiniS3\Meta\UserRepository $users,
+        private readonly \PhpS3\Meta\UserRepository $users,
         private readonly StorageInterface $storage,
     ) {
     }
@@ -33,7 +33,7 @@ final class ServiceHandler
             $names = array_values(array_intersect($names, $auth->allowedBuckets));
         }
 
-        $body = Xml::listBuckets((string) $auth->ownerId, 'mini-s3', $names, $request->requestId);
+        $body = Xml::listBuckets((string) $auth->ownerId, 'php-s3', $names, $request->requestId);
 
         return Response::make(200, $body, ['Content-Type' => 'application/xml']);
     }
@@ -41,6 +41,6 @@ final class ServiceHandler
     /** Ensure the configured data root exists (health check helper). */
     public function health(): Response
     {
-        return Response::text(200, "mini-s3 ok\n", ['Cache-Control' => 'no-store']);
+        return Response::text(200, "php-s3 ok\n", ['Cache-Control' => 'no-store']);
     }
 }

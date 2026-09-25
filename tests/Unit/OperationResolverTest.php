@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Tests\Unit;
+namespace PhpS3\Tests\Unit;
 
-use MiniS3\S3\Exception\UnsupportedOperation;
-use MiniS3\S3\OperationResolver;
-use MiniS3\S3\S3Operation;
+use PhpS3\S3\Exception\UnsupportedOperation;
+use PhpS3\S3\OperationResolver;
+use PhpS3\S3\S3Operation;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -16,7 +16,7 @@ final class OperationResolverTest extends TestCase
 
     public function testServiceScope(): void
     {
-        $r = minis3_test_request('GET', '/');
+        $r = php_s3_test_request('GET', '/');
         self::assertSame(
             ['scope' => 'service', 'bucket' => null, 'key' => null, 'is_admin' => false],
             OperationResolver::parsePath($r),
@@ -25,7 +25,7 @@ final class OperationResolverTest extends TestCase
 
     public function testBucketScope(): void
     {
-        $p = OperationResolver::parsePath(minis3_test_request('GET', '/my-bucket'));
+        $p = OperationResolver::parsePath(php_s3_test_request('GET', '/my-bucket'));
         self::assertSame('bucket', $p['scope']);
         self::assertSame('my-bucket', $p['bucket']);
         self::assertNull($p['key']);
@@ -33,7 +33,7 @@ final class OperationResolverTest extends TestCase
 
     public function testObjectScopeWithSlashInKey(): void
     {
-        $p = OperationResolver::parsePath(minis3_test_request('GET', '/b/photos/2024/img.jpg'));
+        $p = OperationResolver::parsePath(php_s3_test_request('GET', '/b/photos/2024/img.jpg'));
         self::assertSame('object', $p['scope']);
         self::assertSame('b', $p['bucket']);
         self::assertSame('photos/2024/img.jpg', $p['key']);
@@ -42,7 +42,7 @@ final class OperationResolverTest extends TestCase
     public function testTrailingSlashIsBucketScopeNotEmptyObjectKey(): void
     {
         // aws-sdk-php sends ListObjectsV2 as GET /bucket/?list-type=2
-        $p = OperationResolver::parsePath(minis3_test_request('GET', '/my-bucket/'));
+        $p = OperationResolver::parsePath(php_s3_test_request('GET', '/my-bucket/'));
         self::assertSame('bucket', $p['scope']);
         self::assertSame('my-bucket', $p['bucket']);
         self::assertNull($p['key']);
@@ -51,24 +51,24 @@ final class OperationResolverTest extends TestCase
     public function testObjectKeyIsSegmentDecodedNotGlobally(): void
     {
         // '+' inside a key must survive (S3 decodes %2B, never '+')
-        $p = OperationResolver::parsePath(minis3_test_request('GET', '/b/a%2Bb'));
+        $p = OperationResolver::parsePath(php_s3_test_request('GET', '/b/a%2Bb'));
         self::assertSame('a+b', $p['key']);
 
-        $p = OperationResolver::parsePath(minis3_test_request('GET', '/b/a%20b'));
+        $p = OperationResolver::parsePath(php_s3_test_request('GET', '/b/a%20b'));
         self::assertSame('a b', $p['key']);
     }
 
     public function testReservedAdminRoutes(): void
     {
         foreach (['/_health', '/_admin', '/_admin/keys'] as $uri) {
-            $p = OperationResolver::parsePath(minis3_test_request('GET', $uri));
+            $p = OperationResolver::parsePath(php_s3_test_request('GET', $uri));
             self::assertTrue($p['is_admin'], $uri);
         }
     }
 
     public function testVirtualHostedStyleMovesBucketFromHost(): void
     {
-        $r = minis3_test_request('GET', '/obj.txt', ['host' => 'mybucket.s3.test.local']);
+        $r = php_s3_test_request('GET', '/obj.txt', ['host' => 'mybucket.s3.test.local']);
         $p = OperationResolver::parsePath($r, 's3.test.local');
         self::assertSame('object', $p['scope']);
         self::assertSame('mybucket', $p['bucket']);
@@ -79,7 +79,7 @@ final class OperationResolverTest extends TestCase
     {
         // candidate label contains a dot → not treated as a bucket; first
         // path segment becomes the bucket instead.
-        $r = minis3_test_request('GET', '/x', ['host' => 'foo.bar.s3.test.local']);
+        $r = php_s3_test_request('GET', '/x', ['host' => 'foo.bar.s3.test.local']);
         $p = OperationResolver::parsePath($r, 's3.test.local');
         self::assertSame('bucket', $p['scope']);
         self::assertSame('x', $p['bucket']);
@@ -87,10 +87,10 @@ final class OperationResolverTest extends TestCase
 
     /* ----------------------------------------------------------- resolve */
 
-    /** @return array{0: \MiniS3\Http\Request, 1: array{scope:string,bucket:?string,key:?string,is_admin:bool}} */
+    /** @return array{0: \PhpS3\Http\Request, 1: array{scope:string,bucket:?string,key:?string,is_admin:bool}} */
     private function parsed(string $method, string $uri, array $headers = []): array
     {
-        $r = minis3_test_request($method, $uri, $headers);
+        $r = php_s3_test_request($method, $uri, $headers);
 
         return [$r, OperationResolver::parsePath($r)];
     }
@@ -147,7 +147,7 @@ final class OperationResolverTest extends TestCase
     public function testAdminScopeNeverResolvesToS3Operation(): void
     {
         $this->expectException(\LogicException::class);
-        $r = minis3_test_request('GET', '/_admin');
+        $r = php_s3_test_request('GET', '/_admin');
         OperationResolver::resolve($r, OperationResolver::parsePath($r));
     }
 }

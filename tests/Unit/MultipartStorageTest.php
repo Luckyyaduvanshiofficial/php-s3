@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Tests\Unit;
+namespace PhpS3\Tests\Unit;
 
-use MiniS3\S3\Exception\S3Exception;
-use MiniS3\S3\Handlers\MultipartHandler;
-use MiniS3\Storage\LocalFilesystemStorage;
-use MiniS3\Storage\StagedObject;
+use PhpS3\S3\Exception\S3Exception;
+use PhpS3\S3\Handlers\MultipartHandler;
+use PhpS3\Storage\LocalFilesystemStorage;
+use PhpS3\Storage\StagedObject;
 use PHPUnit\Framework\TestCase;
 
 /** Multipart part staging/assembly against a throwaway data root. */
@@ -18,7 +18,7 @@ final class MultipartStorageTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->root = sys_get_temp_dir() . '/minis3_st_' . bin2hex(random_bytes(6));
+        $this->root = sys_get_temp_dir() . '/php_s3_st_' . bin2hex(random_bytes(6));
         mkdir($this->root, 0750, true);
         $this->storage = new LocalFilesystemStorage($this->root);
     }

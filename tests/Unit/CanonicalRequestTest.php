@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Tests\Unit;
+namespace PhpS3\Tests\Unit;
 
-use MiniS3\Auth\CanonicalRequest;
-use MiniS3\Auth\SigningKey;
+use PhpS3\Auth\CanonicalRequest;
+use PhpS3\Auth\SigningKey;
 use PHPUnit\Framework\TestCase;
 
 /**

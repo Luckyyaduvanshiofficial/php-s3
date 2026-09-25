@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\S3;
+namespace PhpS3\S3;
 
-use MiniS3\Auth\AuthContext;
-use MiniS3\Auth\SigningKey;
-use MiniS3\S3\Exception\S3Exception;
+use PhpS3\Auth\AuthContext;
+use PhpS3\Auth\SigningKey;
+use PhpS3\S3\Exception\S3Exception;
 
 /**
  * aws-chunked decoding as a PHP stream filter (streaming, O(chunk) memory).
@@ -24,7 +24,7 @@ use MiniS3\S3\Exception\S3Exception;
  */
 final class ChunkedDecoder
 {
-    public const NAME = 'minis3-chunked-decoder';
+    public const NAME = 'php_s3-chunked-decoder';
     private const MAX_HEADER_BYTES = 1024;
 
     /** Set by PHP as a dynamic property before onCreate(); declared to avoid deprecations. */

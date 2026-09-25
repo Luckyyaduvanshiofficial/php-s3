@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\S3\Handlers;
+namespace PhpS3\S3\Handlers;
 
-use MiniS3\Auth\AuthContext;
-use MiniS3\Http\Request;
-use MiniS3\Http\Response;
-use MiniS3\Meta\BucketRepository;
-use MiniS3\Meta\MultipartRepository;
-use MiniS3\Meta\ObjectRepository;
-use MiniS3\S3\BucketNameValidator;
-use MiniS3\S3\Exception\S3Exception;
-use MiniS3\S3\ChunkedDecoder;
-use MiniS3\S3\KeySanitizer;
-use MiniS3\S3\PayloadVerifier;
-use MiniS3\S3\S3Operation;
-use MiniS3\S3\UserMetadata;
-use MiniS3\S3\Xml\Xml;
-use MiniS3\S3\Xml\XmlParser;
-use MiniS3\Storage\StorageInterface;
+use PhpS3\Auth\AuthContext;
+use PhpS3\Http\Request;
+use PhpS3\Http\Response;
+use PhpS3\Meta\BucketRepository;
+use PhpS3\Meta\MultipartRepository;
+use PhpS3\Meta\ObjectRepository;
+use PhpS3\S3\BucketNameValidator;
+use PhpS3\S3\Exception\S3Exception;
+use PhpS3\S3\ChunkedDecoder;
+use PhpS3\S3\KeySanitizer;
+use PhpS3\S3\PayloadVerifier;
+use PhpS3\S3\S3Operation;
+use PhpS3\S3\UserMetadata;
+use PhpS3\S3\Xml\Xml;
+use PhpS3\S3\Xml\XmlParser;
+use PhpS3\Storage\StorageInterface;
 
 /**
  * The multipart upload suite: create / uploadPart / complete / abort /

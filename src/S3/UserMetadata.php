@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\S3;
+namespace PhpS3\S3;
 
-use MiniS3\Http\Request;
-use MiniS3\S3\Exception\S3Exception;
+use PhpS3\Http\Request;
+use PhpS3\S3\Exception\S3Exception;
 
 /**
  * x-amz-meta-* header extraction. Shared by PutObject/CopyObject and

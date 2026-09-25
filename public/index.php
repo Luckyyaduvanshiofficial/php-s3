@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * mini-s3 front controller.
+ * php-s3 front controller.
  *
  * Everything S3-related and every admin route flows through this file.
  * The data root and config live OUTSIDE the document root (see installer).
@@ -17,13 +17,13 @@ if (function_exists('ob_end_clean')) {
 
 require __DIR__ . '/../src/bootstrap.php';
 
-use MiniS3\Http\Request;
-use MiniS3\Http\Response;
-use MiniS3\Kernel;
+use PhpS3\Http\Request;
+use PhpS3\Http\Response;
+use PhpS3\Kernel;
 
 $request = Request::fromGlobals();
 
-if (getenv('MINIS3_SIG_DEBUG')) {
+if (getenv('PHPS3_SIG_DEBUG')) {
     error_log('REQ ' . $request->method . ' ' . $request->rawPath
         . ($request->queryString !== '' ? '?' . $request->queryString : ''));
 }
@@ -31,15 +31,15 @@ if (getenv('MINIS3_SIG_DEBUG')) {
 try {
     $kernel = new Kernel();
     $response = $kernel->handle($request);
-    if (getenv('MINIS3_SIG_DEBUG')) {
+    if (getenv('PHPS3_SIG_DEBUG')) {
         error_log('RES ' . $response->status . ' ' . json_encode($response->headers));
     }
     $response->send();
 } catch (\Throwable $e) {
     // Last-resort catch: Kernel normally maps S3Exception itself.
-    $ctx = minis3_error_context();
+    $ctx = php_s3_error_context();
     if ($ctx['log_file'] !== null) {
-        \MiniS3\Support\Logger::error(
+        \PhpS3\Support\Logger::error(
             'unhandled: ' . $e::class . ': ' . $e->getMessage(),
             ['file' => $e->getFile(), 'line' => $e->getLine()],
             $ctx['log_file'],

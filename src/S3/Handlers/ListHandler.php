@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\S3\Handlers;
+namespace PhpS3\S3\Handlers;
 
-use MiniS3\Meta\BucketRepository;
-use MiniS3\Meta\ObjectRepository;
-use MiniS3\S3\Exception\S3Exception;
-use MiniS3\S3\Xml\Xml;
+use PhpS3\Meta\BucketRepository;
+use PhpS3\Meta\ObjectRepository;
+use PhpS3\S3\Exception\S3Exception;
+use PhpS3\S3\Xml\Xml;
 
 /**
  * ListObjectsV1 + ListObjectsV2 over the same ordered index scan.
@@ -24,9 +24,9 @@ final class ListHandler
     }
 
     /** @param array<string, string> $query */
-    public function list(\MiniS3\Auth\AuthContext $auth, string $bucket, array $query, bool $v2): \MiniS3\Http\Response
+    public function list(\PhpS3\Auth\AuthContext $auth, string $bucket, array $query, bool $v2): \PhpS3\Http\Response
     {
-        \MiniS3\S3\BucketNameValidator::validate($bucket);
+        \PhpS3\S3\BucketNameValidator::validate($bucket);
         $bucketRow = $this->buckets->findByName($bucket);
         if ($bucketRow === null) {
             throw S3Exception::noSuchBucket($bucket);
@@ -122,7 +122,7 @@ final class ListHandler
             $headers['x-amz-continuation-token'] = $nextToken;
         }
 
-        return \MiniS3\Http\Response::make(200, $xml, $headers);
+        return \PhpS3\Http\Response::make(200, $xml, $headers);
     }
 
     public static function encodeToken(string $key): string

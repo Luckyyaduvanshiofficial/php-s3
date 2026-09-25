@@ -1,4 +1,4 @@
-# mini-s3 — Apache / LiteSpeed front-controller rules.
+# php-s3 — Apache / LiteSpeed front-controller rules.
 # Works with mod_rewrite and LiteSpeed's .htaccess support.
 # nginx equivalents are documented in docs/DEPLOYMENT.md.
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Meta;
+namespace PhpS3\Meta;
 
 /**
  * Thin PDO wrapper: MySQL/MariaDB, exceptions on, reconnect-on-idle
@@ -30,7 +30,7 @@ final class Database
 
     public static function fromAppConfig(): self
     {
-        $c = minis3_config();
+        $c = php_s3_config();
         $db = $c['db'] ?? null;
         if (!is_array($db) || !isset($db['dsn'])) {
             throw new \RuntimeException('database is not configured (run the installer)');

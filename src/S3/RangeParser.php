@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\S3;
+namespace PhpS3\S3;
 
-use MiniS3\S3\Exception\S3Exception;
+use PhpS3\S3\Exception\S3Exception;
 
 /**
  * HTTP Range parsing for object GET (single range only, as S3 does).

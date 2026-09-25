@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Support;
+namespace PhpS3\Support;
 
 /**
  * IP address masking — adapted from PHP-Auth (delight-im/PHP-Auth)

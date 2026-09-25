@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Meta;
+namespace PhpS3\Meta;
 
 /**
  * Admin users (web panel). Passwords: password_hash()/argon2-bcrypt.

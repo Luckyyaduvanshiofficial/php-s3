@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Tests\Unit;
+namespace PhpS3\Tests\Unit;
 
-use MiniS3\Meta\Crypto;
+use PhpS3\Meta\Crypto;
 use PHPUnit\Framework\TestCase;
 
 final class CryptoTest extends TestCase

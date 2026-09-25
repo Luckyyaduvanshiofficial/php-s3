@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Tests\Unit;
+namespace PhpS3\Tests\Unit;
 
-use MiniS3\Admin\Throttle;
-use MiniS3\Meta\Database;
+use PhpS3\Admin\Throttle;
+use PhpS3\Meta\Database;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -20,7 +20,7 @@ final class ThrottleTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->dbFile = tempnam(sys_get_temp_dir(), 'minis3_thr_') . '.sqlite';
+        $this->dbFile = tempnam(sys_get_temp_dir(), 'php_s3_thr_') . '.sqlite';
         $this->db = new Database(['dsn' => 'sqlite:' . $this->dbFile, 'username' => '', 'password' => '']);
         $this->db->pdo()->exec(
             'CREATE TABLE auth_throttling (

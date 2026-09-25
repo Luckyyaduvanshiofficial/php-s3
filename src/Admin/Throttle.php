@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Admin;
+namespace PhpS3\Admin;
 
 /**
  * Database-backed token-bucket rate limiter.
  *
  * Algorithm adapted from PHP-Auth (delight-im/PHP-Auth) "throttle()",
- * Copyright (c) delight.im, MIT License — re-implemented for mini-s3's
+ * Copyright (c) delight.im, MIT License — re-implemented for php-s3's
  * Database layer with strict types.
  *
  * Bucket identity = base64url(SHA-256("\n"-joined criteria)), so composite
@@ -17,7 +17,7 @@ namespace MiniS3\Admin;
  */
 final class Throttle
 {
-    public function __construct(private readonly \MiniS3\Meta\Database $db)
+    public function __construct(private readonly \PhpS3\Meta\Database $db)
     {
     }
 

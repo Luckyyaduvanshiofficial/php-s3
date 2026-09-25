@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Auth;
+namespace PhpS3\Auth;
 
 /**
  * SigV4 canonical request construction (AWS SigV4 spec).

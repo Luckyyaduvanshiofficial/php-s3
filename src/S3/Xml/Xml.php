@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\S3\Xml;
+namespace PhpS3\S3\Xml;
 
 /**
  * Success-response XML builders. Escaping is mandatory (ENT_XML1).

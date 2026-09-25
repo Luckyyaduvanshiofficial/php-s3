@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Support;
+namespace PhpS3\Support;
 
 /**
  * Append-only JSONL log with flock, so concurrent FPM workers cannot
@@ -41,7 +41,7 @@ final class Logger
             'ts' => gmdate('c'),
             'level' => $level,
             'msg' => $message,
-            'req' => $_SERVER['MINIS3_REQUEST_ID'] ?? null,
+            'req' => $_SERVER['PHPS3_REQUEST_ID'] ?? null,
         ] + $context, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) . "\n";
 
         @flock($handle, LOCK_EX);
@@ -69,7 +69,7 @@ final class Logger
 
     private static function defaultFile(): ?string
     {
-        $c = minis3_config();
+        $c = php_s3_config();
 
         return isset($c['log_file']) && is_string($c['log_file']) && $c['log_file'] !== ''
             ? $c['log_file']

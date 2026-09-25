@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\S3\Handlers;
+namespace PhpS3\S3\Handlers;
 
-use MiniS3\Auth\AuthContext;
-use MiniS3\Http\Request;
-use MiniS3\Http\Response;
-use MiniS3\Meta\BucketRepository;
-use MiniS3\Meta\ObjectRepository;
-use MiniS3\S3\BucketNameValidator;
-use MiniS3\S3\Exception\S3Exception;
-use MiniS3\S3\OperationResolver;
-use MiniS3\S3\S3Operation;
-use MiniS3\Storage\StorageInterface;
+use PhpS3\Auth\AuthContext;
+use PhpS3\Http\Request;
+use PhpS3\Http\Response;
+use PhpS3\Meta\BucketRepository;
+use PhpS3\Meta\ObjectRepository;
+use PhpS3\S3\BucketNameValidator;
+use PhpS3\S3\Exception\S3Exception;
+use PhpS3\S3\OperationResolver;
+use PhpS3\S3\S3Operation;
+use PhpS3\Storage\StorageInterface;
 
 /** Bucket-scope operations: Create, Head, Delete. */
 final class BucketHandler
@@ -114,7 +114,7 @@ final class BucketHandler
 
     private function region(): string
     {
-        $c = minis3_config();
+        $c = php_s3_config();
 
         return (string) ($c['region'] ?? 'us-east-1');
     }

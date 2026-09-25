@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Auth;
+namespace PhpS3\Auth;
 
-use MiniS3\Http\Request;
-use MiniS3\S3\Exception\S3Exception;
+use PhpS3\Http\Request;
+use PhpS3\S3\Exception\S3Exception;
 
 /**
  * AWS Signature Version 4 verification for the Authorization-header flow.
@@ -133,7 +133,7 @@ final class Authenticator
         $expected = SigningKey::signature($signingKey, $stringToSign);
 
         if (!hash_equals($expected, strtolower($signature))) {
-            if (getenv('MINIS3_SIG_DEBUG')) {
+            if (getenv('PHPS3_SIG_DEBUG')) {
                 error_log(json_encode([
                     'method' => $request->method,
                     'canonical' => $canonical,
@@ -262,7 +262,7 @@ final class Authenticator
         );
 
         if (!hash_equals($expected, strtolower($signature))) {
-            if (getenv('MINIS3_SIG_DEBUG')) {
+            if (getenv('PHPS3_SIG_DEBUG')) {
                 error_log(json_encode([
                     'mode' => 'presigned',
                     'method' => $request->method,

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Meta;
+namespace PhpS3\Meta;
 
-use MiniS3\S3\Exception\S3Exception;
+use PhpS3\S3\Exception\S3Exception;
 
 /**
  * Bucket metadata. Directory creation is the storage layer's job; this

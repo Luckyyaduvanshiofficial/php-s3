@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Meta;
+namespace PhpS3\Meta;
 
 /**
  * Multipart upload bookkeeping (tables from migration v1, wired in Phase 4).

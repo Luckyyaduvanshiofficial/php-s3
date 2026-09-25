@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Auth;
+namespace PhpS3\Auth;
 
 /**
  * Pluggable secret lookup so Auth never touches SQL directly.

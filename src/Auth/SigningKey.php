@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Auth;
+namespace PhpS3\Auth;
 
 /**
  * SigV4 signing-key derivation and string-to-sign.

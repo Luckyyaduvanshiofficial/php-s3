@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Storage;
+namespace PhpS3\Storage;
 
-use MiniS3\S3\Exception\S3Exception;
+use PhpS3\S3\Exception\S3Exception;
 
 /**
  * Local filesystem storage with sha256-sharded layout.

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Http;
+namespace PhpS3\Http;
 
 /**
  * Response value object. Bodies may be a string OR a streamed file
@@ -106,7 +106,7 @@ final class Response
             $reason = self::REASONS[$this->status] ?? 'Status';
             header('HTTP/1.1 ' . $this->status . ' ' . $reason, true, $this->status);
             if (!isset($this->headers['X-Request-Id'])) {
-                header('X-Request-Id: ' . ($_SERVER['MINIS3_REQUEST_ID'] ?? '-'));
+                header('X-Request-Id: ' . ($_SERVER['PHPS3_REQUEST_ID'] ?? '-'));
             }
             header('X-Content-Type-Options: nosniff');
         }

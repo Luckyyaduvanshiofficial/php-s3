@@ -1,6 +1,6 @@
 {
-    "name": "minis3/minis3",
-    "description": "Self-hostable, S3-compatible object storage server in plain PHP, designed for shared hosting.",
+    "name": "codaipro/php-s3",
+    "description": "php-s3 — self-hosted S3-compatible object storage server in plain PHP, designed for shared hosting. By codaipro (Lucky Yaduvanshi).",
     "type": "project",
     "license": "MIT",
     "require": {
@@ -17,12 +17,12 @@
     },
     "autoload": {
         "psr-4": {
-            "MiniS3\\": "src/"
+            "PhpS3\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "MiniS3\\Tests\\": "tests/"
+            "PhpS3\\Tests\\": "tests/"
         }
     },
     "scripts": {
@@ -30,5 +30,12 @@
     },
     "config": {
         "sort-packages": true
-    }
+    },
+    "authors": [
+        {
+            "name": "Lucky Yaduvanshi",
+            "homepage": "https://luckyyaduvanshi.in",
+            "role": "Developer"
+        }
+    ]
 }

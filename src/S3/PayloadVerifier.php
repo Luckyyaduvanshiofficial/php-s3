@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\S3;
+namespace PhpS3\S3;
 
-use MiniS3\Auth\AuthContext;
-use MiniS3\Http\Request;
-use MiniS3\S3\Exception\S3Exception;
-use MiniS3\Storage\StagedObject;
+use PhpS3\Auth\AuthContext;
+use PhpS3\Http\Request;
+use PhpS3\S3\Exception\S3Exception;
+use PhpS3\Storage\StagedObject;
 
 /**
  * Request payload integrity: x-amz-content-sha256 match (when the client

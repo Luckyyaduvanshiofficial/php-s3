@@ -2,29 +2,29 @@
 
 declare(strict_types=1);
 
-namespace MiniS3;
+namespace PhpS3;
 
-use MiniS3\Auth\Authenticator;
-use MiniS3\Http\Request;
-use MiniS3\Http\Response;
-use MiniS3\Meta\AccessKeyRepository;
-use MiniS3\Meta\BucketRepository;
-use MiniS3\Meta\Crypto;
-use MiniS3\Meta\Database;
-use MiniS3\Meta\MultipartRepository;
-use MiniS3\Meta\ObjectRepository;
-use MiniS3\Meta\UserRepository;
-use MiniS3\S3\Exception\S3Exception;
-use MiniS3\S3\Handlers\BucketHandler;
-use MiniS3\S3\Handlers\ListHandler;
-use MiniS3\S3\Handlers\MultipartHandler;
-use MiniS3\S3\Handlers\ObjectHandler;
-use MiniS3\S3\Handlers\ObjectResponder;
-use MiniS3\S3\Handlers\ServiceHandler;
-use MiniS3\S3\OperationResolver;
-use MiniS3\S3\S3Operation;
-use MiniS3\Storage\LocalFilesystemStorage;
-use MiniS3\Storage\StorageInterface;
+use PhpS3\Auth\Authenticator;
+use PhpS3\Http\Request;
+use PhpS3\Http\Response;
+use PhpS3\Meta\AccessKeyRepository;
+use PhpS3\Meta\BucketRepository;
+use PhpS3\Meta\Crypto;
+use PhpS3\Meta\Database;
+use PhpS3\Meta\MultipartRepository;
+use PhpS3\Meta\ObjectRepository;
+use PhpS3\Meta\UserRepository;
+use PhpS3\S3\Exception\S3Exception;
+use PhpS3\S3\Handlers\BucketHandler;
+use PhpS3\S3\Handlers\ListHandler;
+use PhpS3\S3\Handlers\MultipartHandler;
+use PhpS3\S3\Handlers\ObjectHandler;
+use PhpS3\S3\Handlers\ObjectResponder;
+use PhpS3\S3\Handlers\ServiceHandler;
+use PhpS3\S3\OperationResolver;
+use PhpS3\S3\S3Operation;
+use PhpS3\Storage\LocalFilesystemStorage;
+use PhpS3\Storage\StorageInterface;
 
 /**
  * Request router + dispatcher. Single catch boundary converts S3Exception
@@ -39,12 +39,12 @@ final class Kernel
 
     public function __construct(?array $config = null)
     {
-        $this->config = $config ?? minis3_config();
+        $this->config = $config ?? php_s3_config();
     }
 
     public function handle(Request $request): Response
     {
-        $_SERVER['MINIS3_REQUEST_ID'] = $request->requestId;
+        $_SERVER['PHPS3_REQUEST_ID'] = $request->requestId;
 
         try {
             return $this->dispatch($request);
@@ -60,11 +60,11 @@ final class Kernel
 
         /* -------------------------------------------------- health check */
         if ($path === '/_health' || str_starts_with($path, '/_health')) {
-            return Response::text(200, "mini-s3 ok\n", ['Cache-Control' => 'no-store']);
+            return Response::text(200, "php-s3 ok\n", ['Cache-Control' => 'no-store']);
         }
 
         /* ------------------------------------------------------ installer */
-        if (!minis3_installed()) {
+        if (!php_s3_installed()) {
             if (str_starts_with($path, '/_admin/install')) {
                 return $this->admin()->install($request);
             }
@@ -72,7 +72,7 @@ final class Kernel
                 return Response::redirect(302, '/_admin/install');
             }
             // S3 traffic before installation: honest 503, not a HTML redirect.
-            throw new S3Exception('ServiceUnavailable', 'mini-s3 is not installed yet. Open /_admin/install to finish setup.', 503);
+            throw new S3Exception('ServiceUnavailable', 'php-s3 is not installed yet. Open /_admin/install to finish setup.', 503);
         }
 
         /* --------------------------------------------------------- admin */
@@ -110,7 +110,7 @@ final class Kernel
     /**
      * @param array{scope: string, bucket: ?string, key: ?string, is_admin: bool} $parsed
      */
-    private function execute(Request $request, \MiniS3\Auth\AuthContext $auth, array $parsed, S3Operation $op): Response
+    private function execute(Request $request, \PhpS3\Auth\AuthContext $auth, array $parsed, S3Operation $op): Response
     {
         $bucket = $parsed['bucket'] ?? '';
         $key = $parsed['key'];
@@ -163,15 +163,15 @@ final class Kernel
         return new Authenticator($this->accessKeys(), (string) ($this->config['region'] ?? 'us-east-1'));
     }
 
-    private function admin(): \MiniS3\Admin\AdminKernel
+    private function admin(): \PhpS3\Admin\AdminKernel
     {
-        if (!minis3_installed()) {
+        if (!php_s3_installed()) {
             // Pre-install: only the installer route runs, and it bootstraps
             // the DB itself — there is no config to build repositories from.
-            return new \MiniS3\Admin\AdminKernel();
+            return new \PhpS3\Admin\AdminKernel();
         }
 
-        return new \MiniS3\Admin\AdminKernel($this->db(), $this->users(), $this->accessKeys(), $this->buckets(), $this->objects(), $this->storage());
+        return new \PhpS3\Admin\AdminKernel($this->db(), $this->users(), $this->accessKeys(), $this->buckets(), $this->objects(), $this->storage());
     }
 
     private function services(): object

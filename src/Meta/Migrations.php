@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Meta;
+namespace PhpS3\Meta;
 
 /**
  * Versioned schema. One transaction per version, additive-only:

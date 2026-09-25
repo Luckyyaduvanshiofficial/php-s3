@@ -1,6 +1,6 @@
 <div align="center">
 
-# mini-s3
+# php-s3
 
 ### The self-hosted S3-compatible object storage server that runs on shared hosting
 
@@ -16,7 +16,9 @@ PHP app you deploy like WordPress: upload, open the installer, point your AWS SD
 No Go binary. No Docker. No root. No daemon. No Composer dependencies at runtime.
 Just PHP 8.1+ and MySQL/MariaDB on any Apache, LiteSpeed or cPanel shared host.
 
-[Why mini-s3](#why-not-just-use-minio-or-anything-else) • [Features](#features) • [Quick start](#quick-start) • [S3 API coverage](#s3-api-coverage) • [Comparison](#how-mini-s3-compares) • [Docs](#documentation)
+**Developed by [Lucky Yaduvanshi](https://luckyyaduvanshi.in) — codaipro.**
+
+[Why php-s3](#why-not-just-use-minio-or-anything-else) • [Features](#features) • [Quick start](#quick-start) • [S3 API coverage](#s3-api-coverage) • [Comparison](#how-php-s3-compares) • [Docs](#documentation)
 
 </div>
 
@@ -28,7 +30,7 @@ Because MinIO needs a server you control — a Go binary, a long-running process
 to bind — and your $5/month cPanel plan can't give you any of that. And because the
 other PHP S3 servers each fail a different way:
 
-| You want… | The catch elsewhere | mini-s3 |
+| You want… | The catch elsewhere | php-s3 |
 |---|---|---|
 | S3 on **shared hosting** (cPanel, LiteSpeed, no root) | MinIO/others need a server you administer | ✅ Plain `public/index.php` + `.htaccess`, install via browser |
 | Signatures that are **actually verified** | lite-s3 parses SigV4 but the wired path never checks it (see [research](docs/RESEARCH.md)) | ✅ Strict SigV4 — header + presigned + per-chunk chain, `hash_equals`, **no bypass flags** |
@@ -38,16 +40,16 @@ other PHP S3 servers each fail a different way:
 | A project you can **read and audit** | heavyweight options hide behind frameworks | ✅ Framework-free layered core, research + architecture docs in-repo |
 
 And unlike [opsfour/s3-server](https://github.com/opsfour/s3-server) — the best-in-class
-PHP S3 server, which we openly credit as our quality bar — mini-s3 doesn't require
+PHP S3 server, which we openly credit as our quality bar — php-s3 doesn't require
 PHP 8.4, Amp fibers and long-running workers. **Same correctness bar, deployable where
 shared hosting exists.**
 
-## How mini-s3 compares
+## How php-s3 compares
 
 Fair summary of the four open-source PHP projects we studied in full source before
 writing a line of code (audit: [docs/RESEARCH.md](docs/RESEARCH.md)):
 
-| Capability | **mini-s3** | [opsfour/s3-server](https://github.com/opsfour/s3-server) | [simple-php-s3-server](https://github.com/hochenggang/simple-php-s3-server) | [lite-s3](https://github.com/nityam2007/lite-s3) | [buckie-php](https://github.com/dynamiatools/buckie-php) |
+| Capability | **php-s3** | [opsfour/s3-server](https://github.com/opsfour/s3-server) | [simple-php-s3-server](https://github.com/hochenggang/simple-php-s3-server) | [lite-s3](https://github.com/nityam2007/lite-s3) | [buckie-php](https://github.com/dynamiatools/buckie-php) |
 |---|:-:|:-:|:-:|:-:|:-:|
 | Real S3 XML API + SigV4 | ✅ | ✅ | ✅ | ⚠️ | ❌ |
 | Signature verified on every request | ✅ | ✅ | ⚠️ | ❌ | n/a |
@@ -149,7 +151,7 @@ use Aws\S3\S3Client;
 $s3 = new S3Client([
     'version' => 'latest',
     'region'  => 'us-east-1',
-    'endpoint' => 'https://your-domain.example',   // your mini-s3 URL
+    'endpoint' => 'https://your-domain.example',   // your php-s3 URL
     'use_path_style_endpoint' => true,             // required (path-style)
     'credentials' => [
         'key'    => 'AKIA...',
@@ -208,10 +210,10 @@ $url = (string) $s3->createPresignedRequest($cmd, '+1 hour')->getUri();
 ## CLI
 
 ```bash
-php cli/mini-s3.php migrate              # apply schema migrations (idempotent)
-php cli/mini-s3.php doctor               # environment / config health check
-php cli/mini-s3.php gc                   # purge expired multipart uploads + temp files
-php cli/mini-s3.php key:create --owner=1 --buckets='*' --description=ci
+php cli/php-s3.php migrate              # apply schema migrations (idempotent)
+php cli/php-s3.php doctor               # environment / config health check
+php cli/php-s3.php gc                   # purge expired multipart uploads + temp files
+php cli/php-s3.php key:create --owner=1 --buckets='*' --description=ci
 ```
 
 ## Testing
@@ -256,7 +258,7 @@ docs, `x-amz-checksum-*`, conditional requests, CI workflow.
 
 ## License
 
-[MIT](LICENSE) © mini-s3 contributors.
+[MIT](LICENSE) © 2026 [Lucky Yaduvanshi](https://luckyyaduvanshi.in) (codaipro).
 
 Built on ideas (never copied code) from a line of open-source projects — our thanks:
 
@@ -265,5 +267,5 @@ Built on ideas (never copied code) from a line of open-source projects — our t
   [lite-s3](https://github.com/nityam2007/lite-s3), [buckie-php](https://github.com/dynamiatools/buckie-php) —
   studied in full; what we took (and deliberately left) is documented in [docs/RESEARCH.md](docs/RESEARCH.md)
 
-S3-compatible is a description of API behavior. mini-s3 is not affiliated with,
+S3-compatible is a description of API behavior. php-s3 is not affiliated with,
 endorsed by, or connected to Amazon Web Services.

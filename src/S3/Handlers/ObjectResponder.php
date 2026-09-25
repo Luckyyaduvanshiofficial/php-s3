@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\S3\Handlers;
+namespace PhpS3\S3\Handlers;
 
-use MiniS3\Http\Request;
-use MiniS3\Http\Response;
-use MiniS3\Meta\ObjectRepository;
-use MiniS3\S3\RangeParser;
+use PhpS3\Http\Request;
+use PhpS3\Http\Response;
+use PhpS3\Meta\ObjectRepository;
+use PhpS3\S3\RangeParser;
 
 /**
  * Shared logic for turning an object metadata row into an S3 response
@@ -15,7 +15,7 @@ use MiniS3\S3\RangeParser;
  */
 final class ObjectResponder
 {
-    public function __construct(private readonly \MiniS3\Storage\StorageInterface $storage)
+    public function __construct(private readonly \PhpS3\Storage\StorageInterface $storage)
     {
     }
 

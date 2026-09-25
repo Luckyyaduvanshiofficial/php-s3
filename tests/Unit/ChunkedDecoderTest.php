@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Tests\Unit;
+namespace PhpS3\Tests\Unit;
 
-use MiniS3\Auth\AuthContext;
-use MiniS3\Auth\SigningKey;
-use MiniS3\S3\ChunkedDecoder;
-use MiniS3\S3\Exception\S3Exception;
+use PhpS3\Auth\AuthContext;
+use PhpS3\Auth\SigningKey;
+use PhpS3\S3\ChunkedDecoder;
+use PhpS3\S3\Exception\S3Exception;
 use PHPUnit\Framework\TestCase;
 
 /** aws-chunked framing + per-chunk signature chain against a real stream filter. */

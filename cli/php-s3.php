@@ -3,14 +3,14 @@
 declare(strict_types=1);
 
 /**
- * mini-s3 CLI — maintenance for shared hosting (run from cPanel cron):
+ * php-s3 CLI — maintenance for shared hosting (run from cPanel cron):
  *
- *   php cli/mini-s3.php migrate        apply pending schema migrations
- *   php cli/mini-s3.php gc             clean stale tmp files + expired multipart uploads
- *   php cli/mini-s3.php key:create --owner=1 [--description=...] [--buckets=a,b]
- *   php cli/mini-s3.php doctor         print configuration / environment report
+ *   php cli/php-s3.php migrate        apply pending schema migrations
+ *   php cli/php-s3.php gc             clean stale tmp files + expired multipart uploads
+ *   php cli/php-s3.php key:create --owner=1 [--description=...] [--buckets=a,b]
+ *   php cli/php-s3.php doctor         print configuration / environment report
  *
- * Example cron (daily 03:17):  17 3 * * * /usr/bin/php /path/to/mini-s3/cli/mini-s3.php gc
+ * Example cron (daily 03:17):  17 3 * * * /usr/bin/php /path/to/php-s3/cli/php-s3.php gc
  */
 
 if (PHP_SAPI !== 'cli') {
@@ -20,10 +20,10 @@ if (PHP_SAPI !== 'cli') {
 
 require __DIR__ . '/../src/bootstrap.php';
 
-use MiniS3\Meta\AccessKeyRepository;
-use MiniS3\Meta\Crypto;
-use MiniS3\Meta\Database;
-use MiniS3\Meta\Migrations;
+use PhpS3\Meta\AccessKeyRepository;
+use PhpS3\Meta\Crypto;
+use PhpS3\Meta\Database;
+use PhpS3\Meta\Migrations;
 
 $command = $argv[1] ?? 'help';
 $opts = [];
@@ -35,7 +35,7 @@ foreach (array_slice($argv, 2) as $arg) {
     }
 }
 
-if (!minis3_installed() && $command !== 'help') {
+if (!php_s3_installed() && $command !== 'help') {
     fwrite(STDERR, "not installed: run /_admin/install first\n");
     exit(1);
 }
@@ -67,7 +67,7 @@ try {
             break;
 
         case 'doctor':
-            $c = minis3_config();
+            $c = php_s3_config();
             echo "installed: " . (!empty($c['installed']) ? 'yes' : 'no') . "\n";
             echo "php: " . PHP_VERSION . "\n";
             echo "region: " . ($c['region'] ?? '-') . "\n";
@@ -86,7 +86,7 @@ try {
 
         default:
             echo <<<TXT
-mini-s3 CLI
+php-s3 CLI
 
   migrate                     apply pending database migrations
   gc                          remove stale tmp files and expired multipart uploads
@@ -109,7 +109,7 @@ TXT;
  */
 function runGc(array $opts): int
 {
-    $config = minis3_config();
+    $config = php_s3_config();
     $root = rtrim((string) ($config['data_root'] ?? ''), '/');
     if ($root === '') {
         fwrite(STDERR, "data_root not configured\n");
@@ -172,7 +172,7 @@ function runGc(array $opts): int
     if (!empty($config['installed'])) {
         try {
             $db = Database::fromAppConfig();
-            $purged = (new \MiniS3\Admin\Throttle($db))->purgeExpired();
+            $purged = (new \PhpS3\Admin\Throttle($db))->purgeExpired();
         } catch (Throwable) {
             // table may not exist yet on pre-v2 schemas
         }

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\S3;
+namespace PhpS3\S3;
 
-use MiniS3\S3\Exception\S3Exception;
+use PhpS3\S3\Exception\S3Exception;
 
 /**
  * S3 bucket naming rules (AWS): 3–63 chars, lowercase letters/digits/dots/hyphens,

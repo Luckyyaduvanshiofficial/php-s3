@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Meta;
+namespace PhpS3\Meta;
 
-use MiniS3\Auth\CredentialProvider;
+use PhpS3\Auth\CredentialProvider;
 
 /**
  * Access keys: provisioning + SigV4 credential lookup (with decryption).

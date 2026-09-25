@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\S3;
+namespace PhpS3\S3;
 
-use MiniS3\Http\Request;
-use MiniS3\S3\Exception\UnsupportedOperation;
+use PhpS3\Http\Request;
+use PhpS3\S3\Exception\UnsupportedOperation;
 
 /**
  * scope × method × query × headers → S3Operation.

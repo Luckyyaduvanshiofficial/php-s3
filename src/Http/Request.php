@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Http;
+namespace PhpS3\Http;
 
 /**
  * Immutable request view over $_SERVER (the ONLY place $_SERVER is read).

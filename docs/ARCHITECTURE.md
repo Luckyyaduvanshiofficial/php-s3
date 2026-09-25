@@ -1,6 +1,6 @@
 # Phase 2 — Architecture
 
-This document specifies the unified design for **mini-s3**: an open-source, self-hostable,
+This document specifies the unified design for **php-s3**: an open-source, self-hostable,
 S3-compatible object storage server written in PHP, designed **for shared hosting first**.
 
 Design priority order (from the project brief, applied to every tradeoff):
@@ -166,7 +166,7 @@ large SaaS*, which is not what we are building.
 | `Meta/Migrations` | Versioned schema, one transaction per version, additive-only | opsfour's `SchemaManager` pattern; safe upgrades for existing installs |
 | `KeySanitizer`, `BucketNameValidator` | Canonicalize/validate every path-shaped input | lite-s3's fatal flaw was validating in *one* handler only |
 | `Admin/*` (minimal) | Installer, login, access keys, buckets, usage | Brief: installable by visiting a URL; minimal = small CSRF surface |
-| `cli/mini-s3.php` | `migrate`, `gc`, `key:*` commands | Shared hosting has cron (cPanel) but no daemons; `gc` runs via cron or opportunistically |
+| `cli/php-s3.php` | `migrate`, `gc`, `key:*` commands | Shared hosting has cron (cPanel) but no daemons; `gc` runs via cron or opportunistically |
 | `Support/Logger` | JSONL append log with `flock` | buckie's pattern; operability without a logging daemon |
 
 **Explicitly absent:** queue workers, Redis/APCu requirements, Node/Python tooling, Docker as
@@ -486,7 +486,7 @@ cPanel cron (for `gc`), `.user.ini`/`php_value` for upload/time limits.
 
 | Constraint | Mitigation |
 |---|---|
-| No daemons / persistent processes | Everything is request-driven; maintenance is (a) timeboxed opportunistic GC on ~1/50 requests with a `flock` guard, (b) optional cron `mini-s3 gc` |
+| No daemons / persistent processes | Everything is request-driven; maintenance is (a) timeboxed opportunistic GC on ~1/50 requests with a `flock` guard, (b) optional cron `php-s3 gc` |
 | Low RAM (`memory_limit` often 256M, N workers) | Streaming everywhere; zero runtime deps; admin templates are plain PHP with no caches |
 | `max_execution_time` (30–300 s typical) | Streaming is I/O-bound; multipart keeps single-request time bounded; docs explain limits + `.user.ini` |
 | Single-PUT ceiling (Hostinger observed ~512 MB; `post_max_size` defaults small) | Multipart is the documented path for large objects; installer measures and displays actual limits; `.htaccess`/`.user.ini` raise what the host allows |
@@ -556,14 +556,14 @@ did this properly). `docs/S3-COMPATIBILITY.md` is generated/maintained alongside
 2. **Core → Advanced**: quotas, rate limits, CORS, audit — operational maturity without
    new infrastructure.
 3. **New storage backends**: `StorageInterface` already isolates bytes; an `S3Storage`
-   driver (point mini-s3 at R2/B2 as a backing store) slots in without touching handlers.
+   driver (point php-s3 at R2/B2 as a backing store) slots in without touching handlers.
 4. **Metadata portability**: repositories isolate SQL; a SQLite driver is possible later for
    tiny installs (schema is plain InnoDB-ish DDL; migration runner already versioned).
 5. **What would change if we outgrew shared hosting**: nothing in the request path — the
    design makes no use of shared-hosting *limitations*; moving to a VPS just raises limits
    (we could then add workers/queues behind the same interfaces). This is the test the
    reference projects fail differently: opsfour assumed a VPS from day one, lite-s3 assumed
-   nothing and shipped broken; mini-s3 assumes little but is structured to grow.
+   nothing and shipped broken; php-s3 assumes little but is structured to grow.
 
 ---
 

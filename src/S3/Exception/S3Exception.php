@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\S3\Exception;
+namespace PhpS3\S3\Exception;
 
 /**
  * Every error the S3 client sees is one of these. The single catch site in

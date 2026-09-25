@@ -55,4 +55,4 @@ podman exec -w "$PWD" lerd-php85-fpm sh tmp/smoke.sh   # expect: SMOKE OK
 - Presigned clients must never rewrite `X-Amz-*` params after signing; the server
   re-canonicalizes the query instead (sort + RFC 3986).
 - Multipart part staging lives at `{data}/parts/{uploadId}/{partNumber}` and is purged by
-  `cli/mini-s3.php gc` after the 7-day TTL.
+  `cli/php-s3.php gc` after the 7-day TTL.

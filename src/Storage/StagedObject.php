@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace MiniS3\Storage;
+namespace PhpS3\Storage;
 
 /**
  * Object bytes staged in tmp/, not yet visible to readers.
