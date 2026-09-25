@@ -3,10 +3,10 @@ buckie-php/
 lite-s3/
 s3-server/
 simple-php-s3-server/
+PHP-Auth/
 
 # Dependencies (dev-only)
 /vendor/
-composer.lock
 
 # Runtime data & secrets (outside webroot in production)
 /data/
@@ -28,3 +28,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# local smoke-test scratch (never committed)
+tmp/
