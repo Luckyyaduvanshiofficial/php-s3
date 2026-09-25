@@ -87,6 +87,16 @@ final class AdminKernel
                 }
             }
 
+            if ($path === '/_admin/connect' && $method === 'GET') {
+                return Views::connect(
+                    $user,
+                    $this->connectionCredentials((int) $user['id']),
+                    $this->connectionBuckets((int) $user['id']),
+                    $this->endpoint($request),
+                    (string) (php_s3_config()['region'] ?? 'us-east-1'),
+                );
+            }
+
             if ($path === '/_admin/buckets' && $method === 'POST') {
                 return $this->bucketAction($request, $user);
             }
@@ -450,6 +460,45 @@ final class AdminKernel
     }
 
     /** @return array<string, mixed> */
+    /**
+     * Access keys for the connection panel, with the decrypted secret
+     * attached (same owner scope as the Keys page).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function connectionCredentials(int $userId): array
+    {
+        $out = [];
+        foreach ($this->accessKeys->allForOwner($userId) as $k) {
+            $full = $this->accessKeys->find((string) $k['access_key_id']);
+            $k['secret_access_key'] = $full['secret'] ?? '';
+            $out[] = $k;
+        }
+
+        return $out;
+    }
+
+    /** @return list<string> */
+    private function connectionBuckets(int $userId): array
+    {
+        $names = [];
+        foreach ($this->buckets->usage($userId) as $b) {
+            $names[] = (string) $b['name'];
+        }
+
+        return $names;
+    }
+
+    /** S3 endpoint base URL for this request (scheme://host[:non-default-port]). */
+    private function endpoint(Request $request): string
+    {
+        $scheme = $request->isHttps ? 'https' : 'http';
+        $port = parse_url($scheme . '://' . $request->hostWithPort(), PHP_URL_PORT);
+
+        return $scheme . '://' . $request->host()
+            . ($port !== null && $port !== ($scheme === 'https' ? 443 : 80) ? ':' . $port : '');
+    }
+
     private function systemInfo(): array
     {
         $root = (string) (php_s3_config()['data_root'] ?? '');

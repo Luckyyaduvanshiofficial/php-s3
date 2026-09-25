@@ -33,6 +33,9 @@ button.danger { background: #b62324; }
 .muted { color: #656d76; font-size: .85rem; }
 .inline { display: flex; gap: .5rem; align-items: end; }
 .inline > div { flex: 1; }
+.row { display: flex; gap: .5rem; margin-bottom: .7rem; align-items: center; }
+.row input, .row select { margin: 0; flex: 1; }
+.row button { flex: 0 0 auto; white-space: nowrap; }
 CSS;
 
     public static function login(?string $error): Response
@@ -148,7 +151,8 @@ CSS;
             <h2>System</h2>
             <table>' . $infoRows . '</table>
             <p class="muted">Signed in as <strong>' . self::e($user['username']) . '</strong> — '
-            . '<a href="/_admin/keys">Manage access keys</a></p>
+            . '<a href="/_admin/keys">Manage access keys</a> · '
+            . '<a href="/_admin/connect">Connection details</a></p>
         </div>');
 
         return Response::html(200, $html);
@@ -195,7 +199,8 @@ CSS;
         ' . ($flash ? '<div class="flash">' . self::e((string) $flash) . '</div>' : '') . '
         <div class="card">
             <h1>Access keys</h1>
-            <p class="muted">Use these with any S3 client (SigV4). The secret is shown once.</p>
+            <p class="muted">Use these with any S3 client (SigV4). The access key, secret, endpoint and
+               region can be copied any time from <a href="/_admin/connect">Connection details</a>.</p>
             <table><tr><th>Access key ID</th><th>Description</th><th>Buckets</th><th>Status</th><th>Last used</th><th></th></tr>' . $rows . '</table>
             <h2>Create key</h2>
             <form method="post" action="/_admin/keys">
@@ -212,6 +217,140 @@ CSS;
         </div>');
 
         return Response::html(200, $html);
+    }
+
+    /**
+     * S3 connection details with copy buttons: the panel users paste into
+     * AWS CLI, rclone, boto3 and other S3-compatible clients.
+     *
+     * @param array{id: int, username: string} $user
+     * @param list<array<string, mixed>> $keys each with access_key_id, description, secret_access_key
+     * @param list<string> $buckets
+     */
+    public static function connect(
+        array $user,
+        array $keys,
+        array $buckets,
+        string $endpoint,
+        string $region,
+    ): Response {
+        $keyOptions = '';
+        $secrets = [];
+        foreach ($keys as $k) {
+            $akid = (string) $k['access_key_id'];
+            $desc = trim((string) ($k['description'] ?? ''));
+            $label = $desc !== '' ? $desc . ' (' . $akid . ')' : $akid;
+            $keyOptions .= '<option value="' . self::e($akid) . '">' . self::e($label) . '</option>';
+            $secrets[$akid] = (string) ($k['secret_access_key'] ?? '');
+        }
+        if ($keyOptions === '') {
+            $keyOptions = '<option value="" disabled selected>No keys yet &mdash; create one on the Keys page</option>';
+        }
+        $bucketOptions = '<option value="*">* (all buckets)</option>';
+        foreach ($buckets as $b) {
+            $bucketOptions .= '<option value="' . self::e($b) . '">' . self::e($b) . '</option>';
+        }
+        $secretsJson = (string) json_encode(
+            $secrets,
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES,
+        );
+        $firstAkid = $keys !== [] ? (string) $keys[0]['access_key_id'] : '';
+        $firstSecret = $secrets[$firstAkid] ?? '';
+        $noKeysNote = $keys === []
+            ? '<p class="muted">No access keys yet &mdash; <a href="/_admin/keys">create one</a> first.</p>'
+            : '';
+
+        $body = '
+        <div class="card">
+            <h1>S3 connection details</h1>
+            <p class="muted">Paste these into any S3-compatible app (AWS CLI, rclone, boto3, SDKs, ...).
+               Every request is signed with SigV4, exactly like AWS S3.</p>
+            ' . $noKeysNote . '
+            <label>Endpoint (S3 API)</label>
+            <div class="row">
+                <input id="f-endpoint" readonly value="' . self::e($endpoint) . '">
+                <button type="button" data-copy="f-endpoint">Copy</button>
+            </div>
+            <label>Region</label>
+            <div class="row">
+                <input id="f-region" readonly value="' . self::e($region) . '">
+                <button type="button" data-copy="f-region">Copy</button>
+            </div>
+            <label>Bucket</label>
+            <div class="row">
+                <select id="f-bucket">' . $bucketOptions . '</select>
+                <button type="button" data-copy="f-bucket">Copy</button>
+            </div>
+            <label>Choose access key</label>
+            <div class="row">
+                <select id="f-keyselect">' . $keyOptions . '</select>
+            </div>
+            <label>Access key ID</label>
+            <div class="row">
+                <input id="f-akid" readonly autocomplete="off" placeholder="&mdash;" value="' . self::e($firstAkid) . '">
+                <button type="button" data-copy="f-akid">Copy</button>
+            </div>
+            <label>Secret access key</label>
+            <div class="row">
+                <input id="f-secret" readonly autocomplete="off" placeholder="&mdash;" value="' . self::e($firstSecret) . '">
+                <button type="button" data-copy="f-secret">Copy</button>
+            </div>
+            <p class="muted">Example: <code>aws s3 ls --endpoint-url ' . self::e($endpoint) . '</code>
+               (set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY first)</p>
+            <p><a href="/_admin/keys">Manage keys</a> &middot; <a href="/_admin">Back to dashboard</a></p>
+        </div>
+        <script>
+        (function () {
+            var SECRETS = ' . $secretsJson . ';
+            var sel = document.getElementById("f-keyselect");
+            function refresh() {
+                var v = sel.value;
+                document.getElementById("f-akid").value = v;
+                document.getElementById("f-secret").value = SECRETS[v] || "";
+            }
+            sel.addEventListener("change", refresh);
+            function fallbackCopy(text) {
+                var t = document.createElement("textarea");
+                t.value = text;
+                t.style.position = "fixed";
+                t.style.opacity = "0";
+                document.body.appendChild(t);
+                t.select();
+                try { document.execCommand("copy"); } catch (e) {}
+                document.body.removeChild(t);
+            }
+            document.querySelectorAll("[data-copy]").forEach(function (btn) {
+                btn.addEventListener("click", function () {
+                    var el = document.getElementById(btn.getAttribute("data-copy"));
+                    var text = el.value !== undefined ? el.value : el.textContent;
+                    var done = function () {
+                        var old = btn.textContent;
+                        btn.textContent = "Copied \\u2713";
+                        btn.disabled = true;
+                        setTimeout(function () {
+                            btn.textContent = old;
+                            btn.disabled = false;
+                        }, 1200);
+                    };
+                    if (navigator.clipboard && window.isSecureContext) {
+                        navigator.clipboard.writeText(text).then(done, function () {
+                            fallbackCopy(text);
+                            done();
+                        });
+                    } else {
+                        fallbackCopy(text);
+                        done();
+                    }
+                });
+            });
+        })();
+        </script>';
+
+        return Response::html(
+            200,
+            self::layout('Connection details — php-s3', $body),
+            ['Cache-Control' => 'no-store'],
+        );
     }
 
     public static function throttled(int $retryAfter): string
@@ -246,6 +385,7 @@ CSS;
         $nav = '';
         if (isset($_SESSION['user_id'])) {
             $nav = '<a href="/_admin">Dashboard</a><a href="/_admin/keys">Keys</a>'
+                . '<a href="/_admin/connect">Connect</a>'
                 . '<form method="post" action="/_admin/logout" style="display:inline">'
                 . '<input type="hidden" name="_csrf" value="' . self::e(self::sessionCsrf()) . '">'
                 . '<button class="secondary" style="padding:.15rem .5rem;font-size:.85rem">Sign out</button></form>';
