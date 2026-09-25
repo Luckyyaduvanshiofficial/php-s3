@@ -67,6 +67,30 @@ final class AuthenticatorTest extends TestCase
         self::assertTrue($this->auth->authenticate($request)->isPresigned);
     }
 
+    public function testPresignedGetWithUnsortedQueryOrderAuthenticates(): void
+    {
+        // Real SDKs emit X-Amz-* params in arbitrary order (e.g. sha256 first);
+        // the server must canonicalize (sort + re-encode) before verifying.
+        $uri = $this->presignedUri('GET', '/bucket/obj.txt');
+        $parts = parse_url($uri);
+        self::assertIsArray($parts);
+        parse_str((string) ($parts['query'] ?? ''), $q);
+        krsort($q);
+        $qs = implode('&', array_map(
+            static fn (string $k, string $v): string => rawurlencode($k) . '=' . rawurlencode($v),
+            array_keys($q),
+            array_values($q),
+        ));
+
+        $request = minis3_test_request(
+            'GET',
+            ($parts['path'] ?? '/bucket/obj.txt') . '?' . $qs,
+            ['host' => self::HOST],
+        );
+
+        self::assertTrue($this->auth->authenticate($request)->isPresigned);
+    }
+
     public function testHeaderModeStillAuthenticates(): void
     {
         $amzDate = gmdate('Ymd\THis\Z');

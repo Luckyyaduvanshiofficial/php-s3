@@ -235,7 +235,7 @@ final class Authenticator
         $canonical = CanonicalRequest::build(
             $request->method,
             CanonicalRequest::canonicalUri($request->path),
-            self::queryWithoutSignature($request->queryString),
+            CanonicalRequest::canonicalQueryString(self::queryWithoutSignature($request->queryString)),
             $request->headers,
             $signed,
             'UNSIGNED-PAYLOAD',
