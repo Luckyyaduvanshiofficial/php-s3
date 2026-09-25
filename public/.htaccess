@@ -1,0 +1,42 @@
+# mini-s3 — Apache / LiteSpeed front-controller rules.
+# Works with mod_rewrite and LiteSpeed's .htaccess support.
+# nginx equivalents are documented in docs/DEPLOYMENT.md.
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Never serve dotfiles (config.php, .env, .htaccess, VCS metadata).
+    RewriteRule (^\.|/\.) - [F]
+
+    # Authorization header passthrough for CGI/FastCGI/FPM.
+    # Without this, SigV4 cannot work on many shared hosts.
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Everything that is not a real file/dir goes to the front controller.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always unset X-Powered-By
+</IfModule>
+
+# Defense in depth: the S3 engine must never execute uploads.
+# (The real data root lives outside the web root; this matters only if
+# an operator misconfigures it.)
+<FilesMatch "\.(php|phtml|php\d|phar|pl|py|cgi|sh)$">
+    Require all denied
+</FilesMatch>
+
+# Let PHP pick up per-directory limits if allowed by the host.
+<IfModule mod_php.c>
+    php_value upload_max_filesize 512M
+    php_value post_max_size 512M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+    php_value memory_limit 256M
+</IfModule>
