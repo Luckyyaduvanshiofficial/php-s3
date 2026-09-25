@@ -1,0 +1,34 @@
+{
+    "name": "minis3/minis3",
+    "description": "Self-hostable, S3-compatible object storage server in plain PHP, designed for shared hosting.",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.1",
+        "ext-pdo": "*",
+        "ext-pdo_mysql": "*",
+        "ext-openssl": "*",
+        "ext-fileinfo": "*",
+        "ext-mbstring": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0",
+        "aws/aws-sdk-php": "^3.300"
+    },
+    "autoload": {
+        "psr-4": {
+            "MiniS3\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "MiniS3\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
