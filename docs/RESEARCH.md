@@ -307,3 +307,38 @@ Unnecessarily complex or unsuitable for shared hosting:
   cannot host.
 
 The unified design that takes these together is specified in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
+---
+
+## 4. Admin panel reference: delight-im/PHP-Auth
+
+A fifth project was cloned for the web admin panel only — it is not an S3 server, so it sits
+outside the comparison table above.
+
+| | |
+|---|---|
+| **Repository** | `PHP-Auth/` → [delight-im/PHP-Auth](https://github.com/delight-im/PHP-Auth) |
+| **Package** | `delight-im/auth` (composer `v9.0.0`, 2025-05-28) |
+| **License** | **MIT**, © delight.im — attribution retained in this file and in source headers |
+| **Runtime deps** | `delight-im/base64`, `cookie`, `db`, `otp`, `paragonie/constant_time_encoding` |
+| **Structure** | `Auth.php` (3 099-line facade), `UserManager`, `Administration`, `PasswordHash`, `TokenHash`, `IpAddress`, `Database/{MySQL,PostgreSQL,SQLite}.sql` |
+| **Features** | registration, login, password reset, e-mail verification, 2FA/TOTP, remember-me, token-bucket login throttling, audit log, force-logout, session hardening |
+
+mini-s3 keeps its **zero-runtime-dependency** rule, so the package itself is *never* installed.
+Instead the following concepts were re-implemented in our own typed code:
+
+| Concept (PHP-Auth) | Where in mini-s3 | How |
+|---|---|---|
+| Token-bucket throttling (`throttle()` + `users_throttling`) | `src/Admin/Throttle.php`, migration **v2** (`auth_throttling`) | Same algorithm (capacity = burst × supply, linear refill, base64url-SHA-256 bucket key); ours is a 60-line class over our `Database` layer. Applied **per IP** (10/h) and **per username** (5/15 min) *before* credential check; username bucket reset on success so users cannot self-lock; expired buckets purged by `mini-s3 gc` |
+| Audit log (`users_audit_log`) | `src/Admin/AuditLog.php`, migration **v2** (`audit_log`) | Event type + user + **masked IP** (`/24` v4, `/80` v6) + SHA-256 user-agent + JSON details. Records login success/failure/throttle, logout, key create/toggle/delete, bucket create/delete. Never records secrets; auditing failure never breaks the request |
+| IP masking (`IpAddress::mask()`) | `src/Support/IpAddress.php` | Adapted directly (MIT attribution in file header): keeps network prefix, zeroes host part |
+| Rehash-on-login (`password_needs_rehash`) | `Meta/UserRepository::verify()` | Transparent bcrypt → future-algorithm upgrade on successful login, best-effort |
+| Session hardening | `AdminKernel::startSession()` | `use_only_cookies`, `use_trans_sid`, `cookie_httponly`, `SameSite=Lax`, secure auto-detect, `session_regenerate_id(true)` on login |
+| Security headers | `AdminKernel::startSession()` | `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Cache-Control: no-store` when authenticated — panel only, never on the S3 data path |
+| Exception taxonomy (no internal leakage) | `AdminKernel` catch-all | Logs class/message/file/line to the JSONL log, returns a generic HTML error |
+
+**Deliberately not adopted:** e-mail verification, password reset, 2FA/TOTP, remember-me,
+multi-user roles/impersonation, step-up auth — the panel has a single installer-created admin
+and a minimal surface (out of scope per the project brief). Their `TokenHash` selector/token
+split is noted for Phase 5 (password reset), should it ever be needed.
+
