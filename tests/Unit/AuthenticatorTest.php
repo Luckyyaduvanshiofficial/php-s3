@@ -126,6 +126,75 @@ final class AuthenticatorTest extends TestCase
         self::assertSame(self::AKID, $ctx->accessKeyId);
     }
 
+    public function testStreamingHeaderModeAuthenticates(): void
+    {
+        [$request, $signature, $amzDate] = $this->signedHeaderRequest(
+            'STREAMING-AWS4-HMAC-SHA256-PAYLOAD',
+            ['content-encoding' => 'aws-chunked', 'x-amz-decoded-content-length' => '11'],
+        );
+
+        $ctx = $this->auth->authenticate($request);
+
+        self::assertTrue($ctx->isStreaming());
+        self::assertTrue($ctx->chunksAreSigned());
+        self::assertSame($signature, $ctx->chunkSeedSignature);
+        self::assertSame($amzDate, $ctx->amzDate);
+    }
+
+    public function testStreamingUnsignedTrailerHasNoSeed(): void
+    {
+        [$request] = $this->signedHeaderRequest(
+            'STREAMING-UNSIGNED-PAYLOAD-TRAILER',
+            [
+                'content-encoding' => 'aws-chunked',
+                'x-amz-decoded-content-length' => '11',
+                'x-amz-trailer' => 'x-amz-checksum-crc32',
+            ],
+        );
+
+        $ctx = $this->auth->authenticate($request);
+
+        self::assertTrue($ctx->isStreaming());
+        self::assertFalse($ctx->chunksAreSigned());
+        self::assertNull($ctx->chunkSeedSignature);
+    }
+
+    public function testStreamingWithoutDecodedLengthRejected(): void
+    {
+        [$request] = $this->signedHeaderRequest(
+            'STREAMING-AWS4-HMAC-SHA256-PAYLOAD',
+            ['content-encoding' => 'aws-chunked'],
+        );
+
+        $this->assertAuthError(fn () => $this->auth->authenticate($request), 'InvalidRequest');
+    }
+
+    /** @return array{0: \MiniS3\Http\Request, 1: string, 2: string} request, signature, amzDate */
+    private function signedHeaderRequest(string $payload, array $extraHeaders, string $method = 'PUT', string $uri = '/bucket/chunked.bin'): array
+    {
+        $amzDate = gmdate('Ymd\THis\Z');
+        $shortDate = substr($amzDate, 0, 8);
+        $scope = $shortDate . '/us-east-1/s3/aws4_request';
+        $headers = array_merge([
+            'host' => self::HOST,
+            'x-amz-date' => $amzDate,
+            'x-amz-content-sha256' => $payload,
+        ], $extraHeaders);
+        $signed = ['host', 'x-amz-content-sha256', 'x-amz-date'];
+        $canonical = \MiniS3\Auth\CanonicalRequest::build($method, $uri, '', $headers, $signed, $payload);
+        $stringToSign = SigningKey::stringToSign('AWS4-HMAC-SHA256', $amzDate, $scope, hash('sha256', $canonical));
+        $signature = SigningKey::signature(SigningKey::derive(self::SECRET, $shortDate, 'us-east-1', 's3'), $stringToSign);
+        $headers['authorization'] = sprintf(
+            'AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s',
+            self::AKID,
+            $scope,
+            implode(';', $signed),
+            $signature,
+        );
+
+        return [minis3_test_request($method, $uri, $headers), $signature, $amzDate];
+    }
+
     /* ---------------------------------------------------------- failures */
 
     public function testTamperedSignatureRejected(): void
