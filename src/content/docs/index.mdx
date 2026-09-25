@@ -1,0 +1,50 @@
+---
+title: php-s3
+description: The self-hosted S3-compatible object storage server that runs on shared hosting.
+template: splash
+hero:
+  tagline: Plain PHP 8.1+, zero runtime dependencies, zero daemons. Deploy like WordPress on cPanel or LiteSpeed.
+  actions:
+    - text: Get Started
+      link: /docs/install/
+      icon: right-arrow
+      variant: primary
+    - text: Live Demo
+      link: https://demo.php-s3.codaipro.com
+      icon: external
+      variant: secondary
+    - text: GitHub
+      link: https://github.com/Luckyyaduvanshiofficial/php-s3
+      icon: github
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Why php-s3?
+
+MinIO and Rust/Go S3 alternatives require full root access, dedicated daemons, and custom open ports. Shared hosting gives you none of that.
+
+**php-s3 brings full Amazon S3 compatibility to any shared host** running PHP 8.1+ and MySQL.
+
+<CardGrid stagger>
+  <Card title="Shared Hosting First" icon="rocket">
+    Runs on standard Apache, LiteSpeed, or cPanel. No Docker, no daemon, no root, no Composer at runtime. Just upload files and run the browser installer.
+  </Card>
+  <Card title="Strict AWS SigV4" icon="approve-check">
+    Full SigV4 implementation supporting Authorization header mode, presigned URLs (1 s–7 days), and `aws-chunked` streaming uploads with per-chunk signatures.
+  </Card>
+  <Card title="Constant Memory Streaming" icon="puzzle">
+    Zero buffer bloat. Uploads and downloads stream in 64 KiB chunks with hash-while-writing. Sharded filesystem layout with MySQL metadata index.
+  </Card>
+  <Card title="Proven SDK Compatibility" icon="document">
+    Verified against official AWS SDKs (`aws-sdk-php`, AWS CLI, boto3, rclone). 181 automated tests and 306 assertions keep compatibility honest.
+  </Card>
+</CardGrid>
+
+## Quick Start in 4 Steps
+
+1. **Upload**: Place `index.php`, `.htaccess`, `src/`, and `cli/` in your web directory.
+2. **Install**: Open `https://your-domain.example/_admin/install` in your browser.
+3. **Connect**: Copy your S3 endpoint, Access Key, and Secret from the Admin Connect panel.
+4. **Use**: Configure any standard S3 client in path-style mode.

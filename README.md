@@ -3,13 +3,21 @@
 This is an **orphan branch**: independent history, no application code.
 
 ```
-content/docs/   ← all project documentation (markdown source)
-dist/           ← built site output — created locally, uploaded to the host, never committed
+src/content/docs/        ← documentation markdown & landing page (Astro Starlight)
+src/content/docs/docs/   ← documentation guides (install, hostinger, usage, architecture, s3-compatibility, research)
+dist/                    ← built static site — created locally (`pnpm build`), uploaded to host, never committed
 ```
 
 - **Documentation set:** Installation · Hostinger · Usage · Architecture · S3 Compatibility · Research
-- Frontmatter (`title`, `description`) on every doc so any static-site starter (Astro
-  Starlight etc.) can consume them as-is.
+- Built with [Astro Starlight](https://starlight.astro.build)
+
+**Commands:**
+
+```bash
+pnpm install
+pnpm dev      # local docs preview on http://localhost:4321
+pnpm build    # generates static HTML + search index in dist/
+```
 
 **The application lives on the `main` branch.** For project context, workflows and agent
 notes, see `AGENTS.md` on `main`.

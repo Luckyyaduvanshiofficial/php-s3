@@ -311,7 +311,7 @@ Unnecessarily complex or unsuitable for shared hosting:
   synchronous PHP, while its runtime and feature sprawl are exactly what shared hosting
   cannot host.
 
-The unified design that takes these together is specified in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+The unified design that takes these together is specified in [`ARCHITECTURE.md`](/docs/architecture/).
 
 ---
 
