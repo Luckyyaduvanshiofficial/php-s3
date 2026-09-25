@@ -131,8 +131,8 @@ final class OperationResolverTest extends TestCase
 
     public function testPresignedQueryStillResolvesGetObjectAuthLayerRejects(): void
     {
-        // OperationResolver maps by shape only; Authenticator rejects
-        // X-Amz-Algorithm with NotImplemented (Phase 4 wires presigned).
+        // OperationResolver maps by shape only; Authenticator verifies the
+        // X-Amz-Signature query parameter (covered in AuthenticatorTest).
         [$r, $p] = $this->parsed('GET', '/b/k.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=600&X-Amz-Signature=deadbeef');
         self::assertSame(S3Operation::ObjectGet, OperationResolver::resolve($r, $p));
     }

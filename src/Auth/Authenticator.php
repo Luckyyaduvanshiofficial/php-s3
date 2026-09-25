@@ -34,11 +34,13 @@ final class Authenticator
      */
     public function authenticate(Request $request): AuthContext
     {
-        // Presigned URLs (query-string auth) — Phase 4.
+        // Presigned URLs (query-string auth): no Authorization header,
+        // signature carried in X-Amz-Signature over the canonical query string.
         $authHeader = $request->header('authorization');
         if ($authHeader === null) {
-            if ($request->query()['X-Amz-Algorithm'] ?? null) {
-                throw S3Exception::notImplemented('Presigned URL authentication is not enabled yet.');
+            $query = $request->query();
+            if (isset($query['X-Amz-Algorithm'])) {
+                return $this->authenticatePresigned($request, $query);
             }
             throw S3Exception::missingSecurityHeader('Authorization');
         }
@@ -150,6 +152,162 @@ final class Authenticator
         );
     }
 
+    /**
+     * Query-string (presigned) authentication.
+     *
+     * Differences from header mode, per the SigV4 spec:
+     *  - the signed payload hash is always UNSIGNED-PAYLOAD
+     *  - the canonical query string excludes X-Amz-Signature itself
+     *  - validity window: X-Amz-Date ≤ now+900s (no future skew) AND
+     *    now ≤ X-Amz-Date + X-Amz-Expires (expiration, not ±900s skew)
+     *
+     * @param array<string, string> $query
+     * @throws S3Exception with the exact AWS error code
+     */
+    private function authenticatePresigned(Request $request, array $query): AuthContext
+    {
+        if ($query['X-Amz-Algorithm'] !== self::ALGORITHM) {
+            throw S3Exception::authorizationQueryParametersError('Please use AWS4-HMAC-SHA256 for X-Amz-Algorithm.');
+        }
+
+        $credential = $query['X-Amz-Credential'] ?? '';
+        if ($credential === '') {
+            throw S3Exception::authorizationQueryParametersError('Error parsing the X-Amz-Credential parameter.');
+        }
+        try {
+            [$accessKeyId, $shortDate, $scopeRegion, $scopeService, $scopeTerminal] = $this->parseCredential($credential);
+        } catch (S3Exception) {
+            throw S3Exception::authorizationQueryParametersError('Error parsing the X-Amz-Credential parameter.');
+        }
+        if ($scopeService !== 's3' || $scopeTerminal !== 'aws4_request') {
+            throw S3Exception::authorizationQueryParametersError('Credential scope must end with /s3/aws4_request.');
+        }
+        if ($scopeRegion !== $this->region) {
+            throw S3Exception::authorizationQueryParametersError("Credential should be scoped to correct region: '{$this->region}'.");
+        }
+
+        $amzDate = $query['X-Amz-Date'] ?? '';
+        if (!preg_match('/^\d{8}T\d{6}Z$/', $amzDate)) {
+            throw S3Exception::authorizationQueryParametersError('X-Amz-Date must be YYYYMMDDTHHMMSSZ.');
+        }
+        if (SigningKey::shortDate($amzDate) !== $shortDate) {
+            throw S3Exception::authorizationQueryParametersError('Credential date does not match X-Amz-Date.');
+        }
+
+        $expires = $query['X-Amz-Expires'] ?? '';
+        if (!preg_match('/^\d{1,10}$/', $expires) || (int) $expires < 1) {
+            throw S3Exception::authorizationQueryParametersError('X-Amz-Expires must be a positive integer (seconds).');
+        }
+        if ((int) $expires > 604800) {
+            throw S3Exception::authorizationQueryParametersError(
+                'X-Amz-Expires must be less than a week (in seconds); that is, the given X-Amz-Expires must be less than 604800 seconds.',
+            );
+        }
+
+        $signedAt = self::timestampOf($amzDate);
+        $now = time();
+        if ($signedAt > $now + self::MAX_SKEW_SECONDS) {
+            throw S3Exception::requestTimeTooSkewed();
+        }
+        if ($now > $signedAt + (int) $expires) {
+            throw S3Exception::requestExpired();
+        }
+
+        $signedHeadersRaw = $query['X-Amz-SignedHeaders'] ?? '';
+        if ($signedHeadersRaw === '') {
+            throw S3Exception::authorizationQueryParametersError('X-Amz-SignedHeaders is missing.');
+        }
+        $signed = $this->parseSignedHeaders(explode(';', $signedHeadersRaw));
+        if (!in_array('host', $signed, true)) {
+            throw S3Exception::authorizationQueryParametersError("SignedHeaders must include 'host'.");
+        }
+
+        $signature = $query['X-Amz-Signature'] ?? '';
+        if ($signature === '') {
+            throw S3Exception::authorizationQueryParametersError('Query-string authentication requires the X-Amz-Signature parameter.');
+        }
+
+        $cred = $this->credentials->find($accessKeyId);
+        if ($cred === null || !$cred['enabled']) {
+            throw S3Exception::invalidAccessKeyId();
+        }
+
+        $canonical = CanonicalRequest::build(
+            $request->method,
+            CanonicalRequest::canonicalUri($request->path),
+            self::queryWithoutSignature($request->queryString),
+            $request->headers,
+            $signed,
+            'UNSIGNED-PAYLOAD',
+        );
+
+        $scope = $shortDate . '/' . $scopeRegion . '/' . $scopeService . '/' . $scopeTerminal;
+        $stringToSign = SigningKey::stringToSign(self::ALGORITHM, $amzDate, $scope, hash('sha256', $canonical));
+        $expected = SigningKey::signature(
+            SigningKey::derive($cred['secret'], $shortDate, $scopeRegion, $scopeService),
+            $stringToSign,
+        );
+
+        if (!hash_equals($expected, strtolower($signature))) {
+            if (getenv('MINIS3_SIG_DEBUG')) {
+                error_log(json_encode([
+                    'mode' => 'presigned',
+                    'method' => $request->method,
+                    'canonical' => $canonical,
+                    'stringToSign' => $stringToSign,
+                    'expected' => $expected,
+                    'got' => strtolower($signature),
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            }
+            throw S3Exception::signatureDoesNotMatch();
+        }
+
+        $this->credentials->touch($accessKeyId);
+
+        return new AuthContext(
+            accessKeyId: $accessKeyId,
+            secret: $cred['secret'],
+            ownerId: (int) $cred['owner_id'],
+            allowedBuckets: $cred['allowed_buckets'],
+            region: $scopeRegion,
+            shortDate: $shortDate,
+            payloadHash: 'UNSIGNED-PAYLOAD',
+            isPresigned: true,
+        );
+    }
+
+    /** Raw query string minus the X-Amz-Signature pair (SigV4 spec). */
+    private static function queryWithoutSignature(string $rawQuery): string
+    {
+        if ($rawQuery === '') {
+            return '';
+        }
+        $kept = [];
+        foreach (explode('&', $rawQuery) as $pair) {
+            if ($pair === '') {
+                continue;
+            }
+            $eq = strpos($pair, '=');
+            $name = $eq === false ? $pair : substr($pair, 0, $eq);
+            if (str_replace('+', ' ', rawurldecode($name)) === 'X-Amz-Signature') {
+                continue;
+            }
+            $kept[] = $pair;
+        }
+
+        return implode('&', $kept);
+    }
+
+    private static function timestampOf(string $amzDate): int
+    {
+        $ts = \DateTimeImmutable::createFromFormat('Ymd\THis\Z', $amzDate, new \DateTimeZone('UTC'));
+        if ($ts === false) {
+            throw S3Exception::authorizationQueryParametersError('X-Amz-Date must be YYYYMMDDTHHMMSSZ.');
+        }
+
+        return (int) $ts->format('U');
+    }
+
     /** @return array{0: string, 1: list<string>, 2: string} */
     private function parseAuthorizationHeader(string $header): array
     {
@@ -210,13 +368,8 @@ final class Authenticator
 
     private function assertClockSkew(string $amzDate): void
     {
-        $ts = \DateTimeImmutable::createFromFormat('Ymd\THis\Z', $amzDate, new \DateTimeZone('UTC'));
-        if ($ts === false) {
-            throw S3Exception::authorizationHeaderMalformed('Invalid x-amz-date.');
-        }
         $now = time();
-        $signed = (int) $ts->format('U');
-        if (abs($now - $signed) > self::MAX_SKEW_SECONDS) {
+        if (abs($now - self::timestampOf($amzDate)) > self::MAX_SKEW_SECONDS) {
             throw S3Exception::requestTimeTooSkewed();
         }
     }
