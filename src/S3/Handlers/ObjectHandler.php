@@ -11,10 +11,11 @@ use MiniS3\Meta\BucketRepository;
 use MiniS3\Meta\ObjectRepository;
 use MiniS3\S3\Exception\S3Exception;
 use MiniS3\S3\KeySanitizer;
+use MiniS3\S3\PayloadVerifier;
 use MiniS3\S3\S3Operation;
+use MiniS3\S3\UserMetadata;
 use MiniS3\S3\Xml\Xml;
 use MiniS3\S3\Xml\XmlParser;
-use MiniS3\Storage\StagedObject;
 use MiniS3\Storage\StorageInterface;
 
 /** Object-scope read/write operations (PUT/GET/HEAD/DELETE/COPY). */
@@ -71,7 +72,7 @@ final class ObjectHandler
 
         $staged = $this->storage->stage($request->bodyStream(), $declared);
         try {
-            $this->verifyPayload($request, $auth, $staged);
+            PayloadVerifier::verify($request, $auth, $staged);
 
             $contentType = $request->header('content-type');
             if ($contentType === null || $contentType === '') {
@@ -94,7 +95,7 @@ final class ObjectHandler
                 $staged->md5,
                 $contentType,
                 $request->headers,
-                $this->extractUserMetadata($request),
+                UserMetadata::extract($request),
             );
         } catch (\Throwable $e) {
             // DB write failed → remove the new blob so we don't orphan it.
@@ -152,7 +153,7 @@ final class ObjectHandler
             $metadata = $directive === 'REPLACE'
                 ? [
                     'content_type' => $request->header('content-type') ?: (string) $srcObject['content_type'],
-                    'user_metadata' => $this->extractUserMetadata($request),
+                    'user_metadata' => UserMetadata::extract($request),
                     'headers' => $request->headers,
                 ]
                 : [
@@ -256,46 +257,6 @@ final class ObjectHandler
     }
 
     /* --------------------------------------------------------- helpers */
-
-    private function verifyPayload(Request $request, AuthContext $auth, StagedObject $staged): void
-    {
-        if (preg_match('/^[a-f0-9]{64}$/', $auth->payloadHash)) {
-            if (!hash_equals($auth->payloadHash, $staged->sha256)) {
-                throw S3Exception::xAmzContentSha256Mismatch();
-            }
-        }
-        // UNSIGNED-PAYLOAD: accepted as-is (TLS assumed).
-
-        $contentMd5 = $request->contentMd5();
-        if ($contentMd5 !== null && trim($contentMd5) !== '') {
-            $expected = base64_decode(trim($contentMd5), true);
-            if ($expected === false || !hash_equals($expected, (string) hex2bin($staged->md5))) {
-                throw S3Exception::badDigest();
-            }
-        }
-    }
-
-    /** @return array<string, string> */
-    private function extractUserMetadata(Request $request): array
-    {
-        $out = [];
-        foreach ($request->headers as $name => $value) {
-            if (str_starts_with($name, 'x-amz-meta-')) {
-                $metaKey = substr($name, strlen('x-amz-meta-'));
-                if ($metaKey !== '') {
-                    $out[$metaKey] = $value;
-                }
-            }
-        }
-        if ($out !== []) {
-            $encoded = json_encode($out, JSON_UNESCAPED_UNICODE);
-            if ($encoded !== false && strlen($encoded) > 2048) {
-                throw S3Exception::invalidArgument('x-amz-meta', '', 'User metadata exceeds 2048 bytes.');
-            }
-        }
-
-        return $out;
-    }
 
     /** @return array{0: string, 1: string} bucket, key */
     private function parseCopySource(string $source): array
