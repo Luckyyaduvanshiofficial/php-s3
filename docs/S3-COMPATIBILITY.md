@@ -37,6 +37,12 @@ podman exec -w "$PWD" lerd-php85-fpm sh tmp/smoke.sh   # expect: SMOKE OK
 | Multipart | Errors: `InvalidPart`, `EntityTooSmall`, `NoSuchUpload`, `InvalidPartOrder` | ✅ | smoke 8, `MultipartStorageTest` |
 | Multipart | `ListParts`/parts storage, part validation (1..10000, ≤5 GiB) | ✅ | `MultipartRepositoryTest`, `MultipartStorageTest` |
 
+## Known deviations
+
+| Deviation | Why | Impact |
+|---|---|---|
+| `CreateBucket` omits AWS's `Location: /bucket` header | PHP forces `header('Location: …')` to a 302 unless the status is already 201/3xx; forcing the code back to 200 afterwards makes LiteSpeed/LSAPI (Hostinger shared hosting) return a bare 500. Observed live; `Response::send()` now sets the status before headers, but a true 200 + Location is not emittable. | None for real clients: aws-cli, boto3 and the AWS SDKs key off the 200 status and do not read this header. |
+
 ## Remaining queue
 
 | Item | Notes |
