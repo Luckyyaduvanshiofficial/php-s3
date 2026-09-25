@@ -1,0 +1,25 @@
+# Site dependencies & build output (never committed)
+node_modules/
+dist/
+.astro/
+
+# Local starter scaffold — the Astro site lands at repo root later
+starlight/
+
+# Reference projects — research only, never part of php-s3
+buckie-php/
+lite-s3/
+s3-server/
+simple-php-s3-server/
+PHP-Auth/
+
+# Leftovers from main-branch development sharing this working tree
+/vendor/
+/tmp/
+/config.php
+/.phpunit.cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
