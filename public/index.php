@@ -15,7 +15,13 @@ if (function_exists('ob_end_clean')) {
     }
 }
 
-require __DIR__ . '/../src/bootstrap.php';
+// Two supported layouts: dev has the front controller in public/ (project
+// root one level up); flat shared-hosting deployments put index.php next to
+// src/ because hosts only serve the domain document root.
+$bootstrap = is_file(__DIR__ . '/../src/bootstrap.php')
+    ? __DIR__ . '/../src/bootstrap.php'
+    : __DIR__ . '/src/bootstrap.php';
+require $bootstrap;
 
 use PhpS3\Http\Request;
 use PhpS3\Http\Response;

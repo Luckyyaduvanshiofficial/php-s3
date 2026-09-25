@@ -15,6 +15,9 @@ Options -Indexes
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
+    # Flat layout: src/, cli/, docs/... sit next to index.php — never serve them.
+    RewriteRule ^(src|cli|docs|tests|vendor)(/|$) - [F]
+
     # Everything that is not a real file/dir goes to the front controller.
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
@@ -25,10 +28,10 @@ Options -Indexes
     Header always unset X-Powered-By
 </IfModule>
 
-# Defense in depth: the S3 engine must never execute uploads.
-# (The real data root lives outside the web root; this matters only if
-# an operator misconfigures it.)
-<FilesMatch "\.(php|phtml|php\d|phar|pl|py|cgi|sh)$">
+# Defense in depth: execute only the front controller — never an upload or a
+# stray script. (The real data root lives outside the web root; this matters
+# only if an operator misconfigures it.)
+<FilesMatch "^(?!index\.php$)[^/]+\.(php|phtml|php\d|phar|pl|py|cgi|sh)$">
     Require all denied
 </FilesMatch>
 

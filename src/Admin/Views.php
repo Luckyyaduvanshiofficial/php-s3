@@ -57,6 +57,8 @@ CSS;
     public static function install(array $checks, ?array $errors): Response
     {
         $csrf = self::sessionCsrf();
+        $root = dirname(__DIR__, 2);
+        $defaultDataRoot = is_file($root . '/index.php') ? dirname($root) . '/data' : $root . '/data';
         $rows = '';
         foreach ($checks as $name => $c) {
             $rows .= '<tr><td>' . self::e($name) . '</td><td class="' . ($c['ok'] ? 'ok' : 'bad') . '">'
@@ -77,7 +79,7 @@ CSS;
             <form method="post" action="/_admin/install">
                 <input type="hidden" name="_csrf" value="' . self::e($csrf) . '">
                 <label>Data root (absolute path, OUTSIDE the web root)</label>
-                <input name="data_root" value="' . self::e(dirname(__DIR__, 2) . '/data') . '" required>
+                <input name="data_root" value="' . self::e($defaultDataRoot) . '" required>
                 <label>Database DSN (MySQL/MariaDB)</label>
                 <input name="db_dsn" placeholder="mysql:host=127.0.0.1;dbname=php_s3;charset=utf8mb4" required>
                 <label>Database username</label><input name="db_username" required>
