@@ -99,7 +99,7 @@ final class Xml
             . self::close('CopyObjectResult');
     }
 
-    /** @param list<array{key:string, deleted:bool, code?:string}> $results */
+    /** @param list<array{key:string, deleted:bool, code?:string, message?:string}> $results */
     public static function deleteResult(array $results): string
     {
         $xml = self::open('DeleteResult');
@@ -107,9 +107,10 @@ final class Xml
             if ($r['deleted']) {
                 $xml .= '<Deleted><Key>' . self::e($r['key']) . '</Key></Deleted>';
             } else {
+                $code = $r['code'] ?? 'InternalError';
                 $xml .= '<Error><Key>' . self::e($r['key']) . '</Key>'
-                    . '<Code>' . self::e($r['code'] ?? 'InternalError') . '</Code>'
-                    . '<Message>' . self::e($r['code'] ?? 'error') . '</Message></Error>';
+                    . '<Code>' . self::e($code) . '</Code>'
+                    . '<Message>' . self::e($r['message'] ?? $code) . '</Message></Error>';
             }
         }
         $xml .= self::close('DeleteResult');

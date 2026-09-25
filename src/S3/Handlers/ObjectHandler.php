@@ -13,6 +13,7 @@ use MiniS3\S3\Exception\S3Exception;
 use MiniS3\S3\KeySanitizer;
 use MiniS3\S3\S3Operation;
 use MiniS3\S3\Xml\Xml;
+use MiniS3\S3\Xml\XmlParser;
 use MiniS3\Storage\StagedObject;
 use MiniS3\Storage\StorageInterface;
 
@@ -38,6 +39,7 @@ final class ObjectHandler
             S3Operation::ObjectGet => $this->get($request, $bucket, (int) $bucketRow['id'], (string) $key, false),
             S3Operation::ObjectHead => $this->get($request, $bucket, (int) $bucketRow['id'], (string) $key, true),
             S3Operation::ObjectDelete => $this->delete($bucket, (int) $bucketRow['id'], (string) $key),
+            S3Operation::ObjectsDelete => $this->deleteObjects($request, $bucket, (int) $bucketRow['id']),
             default => throw S3Exception::methodNotAllowed(),
         };
     }
@@ -218,6 +220,39 @@ final class ObjectHandler
 
         // S3 DELETE is idempotent: missing key still returns 204.
         return Response::make(204);
+    }
+
+    /* ---------------------------------------------------- DELETE OBJECTS */
+
+    /** POST /{bucket}?delete — batch delete, up to 1000 keys per request. */
+    private function deleteObjects(Request $request, string $bucket, int $bucketId): Response
+    {
+        $body = stream_get_contents($request->bodyStream());
+        $parsed = XmlParser::deleteRequest($body === false ? '' : $body);
+
+        if (count($parsed['objects']) > 1000) {
+            throw S3Exception::invalidRequest('You may not specify more than 1000 keys in a single DeleteObjects request.');
+        }
+
+        $results = [];
+        foreach ($parsed['objects'] as $key) {
+            try {
+                KeySanitizer::validate($key);
+                $path = $this->objects->take($bucketId, $key);
+                if ($path !== null) {
+                    $this->storage->delete($bucket, $path);
+                }
+                // Missing keys are reported as Deleted too (S3 is idempotent here).
+                if (!$parsed['quiet']) {
+                    $results[] = ['key' => $key, 'deleted' => true];
+                }
+            } catch (S3Exception $e) {
+                // Per-key failures are entries in the response, not request errors.
+                $results[] = ['key' => $key, 'deleted' => false, 'code' => $e->errorCode, 'message' => $e->awsMessage];
+            }
+        }
+
+        return Response::make(200, Xml::deleteResult($results), ['Content-Type' => 'application/xml']);
     }
 
     /* --------------------------------------------------------- helpers */

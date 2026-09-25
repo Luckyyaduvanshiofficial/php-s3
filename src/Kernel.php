@@ -127,6 +127,7 @@ final class Kernel
             case S3Operation::ObjectGet:
             case S3Operation::ObjectHead:
             case S3Operation::ObjectDelete:
+            case S3Operation::ObjectsDelete:
                 return $this->services()->object->handle($request, $auth, $bucket, $key, $op);
 
             case S3Operation::ListObjectsV1:

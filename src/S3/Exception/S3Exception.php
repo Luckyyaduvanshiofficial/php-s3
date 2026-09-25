@@ -134,6 +134,41 @@ class S3Exception extends \RuntimeException
         return new self('NotImplemented', $message, 501);
     }
 
+    public static function malformedXml(string $message = 'The XML you provided was not well-formed or did not validate against our published schema.'): self
+    {
+        return new self('MalformedXML', $message, 400);
+    }
+
+    public static function noSuchUpload(): self
+    {
+        return new self('NoSuchUpload', 'The specified multipart upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed.', 404);
+    }
+
+    public static function invalidPart(string $partNumber = ''): self
+    {
+        return new self('InvalidPart', "One or more of the specified parts could not be found. The part may not have been uploaded, or the specified entity tag may not have matched the part's entity tag.", 400, $partNumber === '' ? [] : ['PartNumber' => $partNumber]);
+    }
+
+    public static function invalidPartOrder(): self
+    {
+        return new self('InvalidPartOrder', 'The list of parts was not in ascending order. Parts must be ordered by part number.', 400);
+    }
+
+    public static function entityTooSmall(): self
+    {
+        return new self('EntityTooSmall', 'Your proposed upload is smaller than the minimum allowed size.', 400);
+    }
+
+    public static function requestExpired(): self
+    {
+        return new self('AccessDenied', 'Request has expired.', 403);
+    }
+
+    public static function authorizationQueryParametersError(string $message): self
+    {
+        return new self('AuthorizationQueryParametersError', $message, 400);
+    }
+
     public static function internalError(string $message = 'We encountered an internal error. Please try again.'): self
     {
         return new self('InternalError', $message, 500);
