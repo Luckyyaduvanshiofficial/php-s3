@@ -34,3 +34,8 @@ tmp/
 
 # Local Astro starter exploration (site lives on the web branch)
 /starlight/
+
+# Web branch build artifacts
+node_modules/
+dist/
+.astro/
