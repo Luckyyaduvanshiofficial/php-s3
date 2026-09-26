@@ -1,8 +1,12 @@
 {
     "name": "codaipro/php-s3",
     "description": "php-s3 — self-hosted S3-compatible object storage server in plain PHP, designed for shared hosting. By codaipro (Lucky Yaduvanshi).",
+    "homepage": "https://github.com/Luckyyaduvanshiofficial/php-s3",
     "type": "project",
-    "license": "MIT",
+    "license": "Apache-2.0",
+    "support": {
+        "source": "https://github.com/Luckyyaduvanshiofficial/php-s3"
+    },
     "require": {
         "php": ">=8.1",
         "ext-pdo": "*",

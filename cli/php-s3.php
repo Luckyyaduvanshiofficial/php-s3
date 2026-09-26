@@ -3,6 +3,12 @@
 declare(strict_types=1);
 
 /**
+ * Copyright 2026 codaipro — Lucky Yaduvanshi (https://luckyyaduvanshi.in)
+ * Original source: https://github.com/Luckyyaduvanshiofficial/php-s3
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ *
  * php-s3 CLI — maintenance for shared hosting (run from cPanel cron):
  *
  *   php cli/php-s3.php migrate        apply pending schema migrations
@@ -68,6 +74,11 @@ try {
 
         case 'doctor':
             $c = php_s3_config();
+            $prov = php_s3_provenance();
+            echo "php-s3: " . $prov['version'] . " (" . $prov['author'] . ")\n";
+            echo "license: " . $prov['license'] . "\n";
+            echo "source: " . $prov['source'] . "\n";
+            echo "fingerprint: " . $prov['fingerprint'] . "\n";
             echo "installed: " . (!empty($c['installed']) ? 'yes' : 'no') . "\n";
             echo "php: " . PHP_VERSION . "\n";
             echo "region: " . ($c['region'] ?? '-') . "\n";

@@ -4,7 +4,7 @@
 
 ### The self-hosted S3-compatible object storage server that runs on shared hosting
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-777BB4.svg)](https://php.net)
 [![Tests](https://img.shields.io/badge/tests-178%20passing-brightgreen.svg)](docs/S3-COMPATIBILITY.md)
 [![S3 API](https://img.shields.io/badge/S3-compatible-API-orange.svg)](docs/S3-COMPATIBILITY.md)
@@ -256,7 +256,7 @@ docs, `x-amz-checksum-*`, conditional requests, CI workflow.
 
 ## License
 
-[MIT](LICENSE) © php-s3 contributors.
+[Apache-2.0](LICENSE) © 2026 codaipro — Lucky Yaduvanshi.
 
 Built on ideas (never copied code) from a line of open-source projects — our thanks:
 

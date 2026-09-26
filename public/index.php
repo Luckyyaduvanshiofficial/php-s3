@@ -3,8 +3,13 @@
 declare(strict_types=1);
 
 /**
- * php-s3 front controller.
+ * Copyright 2026 codaipro — Lucky Yaduvanshi (https://luckyyaduvanshi.in)
+ * Original source: https://github.com/Luckyyaduvanshiofficial/php-s3
  *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ *
+ * php-s3 front controller.
  * Everything S3-related and every admin route flows through this file.
  * The data root and config live OUTSIDE the document root (see installer).
  */

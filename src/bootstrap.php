@@ -3,6 +3,12 @@
 declare(strict_types=1);
 
 /**
+ * Copyright 2026 codaipro — Lucky Yaduvanshi (https://luckyyaduvanshi.in)
+ * Original source: https://github.com/Luckyyaduvanshiofficial/php-s3
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ *
  * php-s3 bootstrap: PSR-4 autoloader (no Composer required at runtime),
  * configuration loading and global error handling.
  *
@@ -11,6 +17,31 @@ declare(strict_types=1);
 
 define('PHPS3_ROOT', dirname(__DIR__));
 define('PHPS3_SRC', PHPS3_ROOT . '/src');
+define('PHPS3_VERSION', '0.4.0');
+define('PHPS3_LICENSE', 'Apache-2.0');
+define('PHPS3_AUTHOR', 'codaipro — Lucky Yaduvanshi (https://luckyyaduvanshi.in)');
+define('PHPS3_SOURCE', 'https://github.com/Luckyyaduvanshiofficial/php-s3');
+define('PHPS3_FINGERPRINT', 'f6a73f3a:cafa325a');
+define('PHPS3_BUILD_INFO', 'php-s3 v0.4.0 (2026-09-24T22:43:37+05:30) codaipro/Lucky Yaduvanshi');
+define('PHPS3_SIGNATURE', 'codaipro:php-s3:f6a73f3a:2026');
+
+/**
+ * Provenance and identity metadata.
+ *
+ * @internal Canary watermark: codaipro-canary-20260924
+ * @return array{version: string, license: string, author: string, source: string, fingerprint: string, build: string}
+ */
+function php_s3_provenance(): array
+{
+    return [
+        'version' => PHPS3_VERSION,
+        'license' => PHPS3_LICENSE,
+        'author' => PHPS3_AUTHOR,
+        'source' => PHPS3_SOURCE,
+        'fingerprint' => PHPS3_FINGERPRINT,
+        'build' => PHPS3_BUILD_INFO,
+    ];
+}
 
 /* ---------------------------------------------------------------- autoloader */
 

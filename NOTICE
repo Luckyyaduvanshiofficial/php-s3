@@ -1,0 +1,18 @@
+php-s3
+Copyright 2026 codaipro — Lucky Yaduvanshi (https://luckyyaduvanshi.in)
+
+This product includes software developed by Lucky Yaduvanshi (codaipro).
+Original repository: https://github.com/Luckyyaduvanshiofficial/php-s3
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at:
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Any derivative work, fork, or redistributable MUST:
+1. Retain this NOTICE file in its entirety in all distributions per Apache License 2.0 § 4(d).
+2. Retain all original copyright, attribution, and provenance notices per Apache License 2.0 § 4(c).
+3. Document any modifications prominently per Apache License 2.0 § 4(b).
+
+This product includes concepts and algorithm adaptations from:
+- delight-im/PHP-Auth (MIT License, Copyright (c) delight.im)
