@@ -3,7 +3,7 @@ title: php-s3
 description: The self-hosted S3-compatible object storage server that runs on shared hosting.
 template: splash
 hero:
-  tagline: Plain PHP 8.1+, zero runtime dependencies, zero daemons. Deploy like WordPress on cPanel or LiteSpeed.
+  tagline: The self-hosted S3-compatible object storage server that runs on shared hosting. Plain PHP 8.1+, zero runtime dependencies, zero daemons. Deploy like WordPress on cPanel or LiteSpeed.
   actions:
     - text: Get Started
       link: /docs/install/
@@ -21,30 +21,252 @@ hero:
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## Why php-s3?
-
-MinIO and Rust/Go S3 alternatives require full root access, dedicated daemons, and custom open ports. Shared hosting gives you none of that.
-
-**php-s3 brings full Amazon S3 compatibility to any shared host** running PHP 8.1+ and MySQL.
+<div class="not-content" style="text-align: center; margin-bottom: 2rem;">
+  <p style="font-size: 1.15rem; max-width: 800px; margin: 0 auto; color: var(--sl-color-gray-2);">
+    <strong>Amazon S3 API — SigV4, multipart, presigned URLs, <code>aws-chunked</code> streaming — as a plain
+    PHP app you deploy like WordPress: upload, open the installer, point your AWS SDK at it.</strong>
+  </p>
+  <p style="font-size: 0.95rem; max-width: 750px; margin: 0.75rem auto 0; color: var(--sl-color-gray-3);">
+    No Go binary. No Docker. No root. No daemon. No Composer dependencies at runtime.
+    Just PHP 8.1+ and MySQL/MariaDB on any Apache, LiteSpeed, or cPanel shared host.
+  </p>
+</div>
 
 <CardGrid stagger>
   <Card title="Shared Hosting First" icon="rocket">
-    Runs on standard Apache, LiteSpeed, or cPanel. No Docker, no daemon, no root, no Composer at runtime. Just upload files and run the browser installer.
+    Plain <code>public/index.php</code> and <code>.htaccess</code>. Zero daemons, no Docker, and no root access required. Install via a browser wizard on cPanel, LiteSpeed, or Apache.
   </Card>
   <Card title="Strict AWS SigV4" icon="approve-check">
-    Full SigV4 implementation supporting Authorization header mode, presigned URLs (1 s–7 days), and `aws-chunked` streaming uploads with per-chunk signatures.
+    Full SigV4 implementation supporting Authorization header mode, presigned query URLs (1 s–7 days), and <code>aws-chunked</code> streaming uploads with per-chunk signatures. No bypass flags.
   </Card>
   <Card title="Constant Memory Streaming" icon="puzzle">
-    Zero buffer bloat. Uploads and downloads stream in 64 KiB chunks with hash-while-writing. Sharded filesystem layout with MySQL metadata index.
+    Everything is a 64 KiB streaming loop with on-the-fly hash calculation. Big uploads never buffer in RAM. Safe <code>sha256(key)</code>-sharded disk layout with MySQL metadata index.
   </Card>
   <Card title="Proven SDK Compatibility" icon="document">
-    Verified against official AWS SDKs (`aws-sdk-php`, AWS CLI, boto3, rclone). 181 automated tests and 306 assertions keep compatibility honest.
+    Verified with the official AWS SDK for PHP (<code>aws/aws-sdk-php</code>), AWS CLI, boto3, and rclone. Backed by 191 automated tests and 334 assertions.
   </Card>
 </CardGrid>
 
-## Quick Start in 4 Steps
+---
 
-1. **Upload**: Place `index.php`, `.htaccess`, `src/`, and `cli/` in your web directory.
-2. **Install**: Open `https://your-domain.example/_admin/install` in your browser.
-3. **Connect**: Copy your S3 endpoint, Access Key, and Secret from the Admin Connect panel.
-4. **Use**: Configure any standard S3 client in path-style mode.
+## Why not just use MinIO (or anything else)?
+
+Because MinIO needs a server you control — a Go binary, a long-running process, a port to bind — and your standard cPanel shared hosting plan cannot give you any of that. The other PHP S3 servers each fail in critical ways:
+
+| You want… | The catch elsewhere | php-s3 |
+|---|---|---|
+| S3 on **shared hosting** (cPanel, LiteSpeed, no root) | MinIO and others require a server daemon you administer | Plain `public/index.php` + `.htaccess`, install via browser wizard |
+| Signatures that are **actually verified** | lite-s3 parses SigV4 but the wired path never checks it (see [research](/docs/research/)) | Strict SigV4 — header + presigned + per-chunk chain, `hash_equals`, **no bypass flags** |
+| Uploads of **big files in constant memory** | simple-php-s3-server buffers whole PUT bodies in RAM | Everything is a 64 KiB streaming loop, hash-while-writing |
+| Listings that don't degrade | buckie and simple-php re-scan the directory per list page — O(n) | DB is the index; sharded object layout, pagination stays fast |
+| Real S3 semantics (XML API, AWS error codes, composite ETags) | buckie-php is not S3 at all; lite-s3's ETags are not AWS-format | Spec-shaped: `md5(...)-N` multipart ETags, standard AWS error taxonomy |
+| A project you can **read and audit** | Heavyweight options hide behind frameworks | Framework-free layered core, full research and architecture docs in-repo |
+
+And unlike [opsfour/s3-server](https://github.com/opsfour/s3-server) — the best-in-class PHP S3 server, which we openly credit as our quality bar — php-s3 does not require PHP 8.4, Amp fibers, or long-running worker processes. **Same correctness bar, deployable where shared hosting exists.**
+
+---
+
+## How php-s3 compares
+
+Fair summary of the four open-source PHP projects we studied in full source before writing code (audit: [Research & Audit](/docs/research/)):
+
+| Capability | **php-s3** | [opsfour/s3-server](https://github.com/opsfour/s3-server) | [simple-php-s3-server](https://github.com/hochenggang/simple-php-s3-server) | [lite-s3](https://github.com/nityam2007/lite-s3) | [buckie-php](https://github.com/dynamiatools/buckie-php) |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Real S3 XML API + SigV4 | ✅ | ✅ | ✅ | ⚠️ | ❌ |
+| Signature verified on every request | ✅ | ✅ | ⚠️ | ❌ | n/a |
+| Runs on shared hosting (PHP 8.1, no daemon) | ✅ | ❌ | ✅ | ✅ | ✅ |
+| Streaming PUT/GET (constant memory) | ✅ | ✅ | ❌ | ⚠️ | ✅ |
+| DB-indexed listings (no full scans) | ✅ | ✅ | ❌ | ✅ | ❌ |
+| Multipart with AWS-format ETag | ✅ | ✅ | ✅ | ⚠️ | ❌ |
+| Presigned URLs (GET/PUT, expiry) | ✅ | ✅ | ⚠️ | ⚠️ | ❌ |
+| `aws-chunked` + per-chunk signatures | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Automated tests in repo | ✅ 191 | ✅ 745 | ⚠️ | ❌ | ✅ 56 |
+| Web installer + admin panel | ✅ | ❌ | ❌ | ✅ | ❌ |
+| Runtime dependencies | **0** | Amp + Symfony | 2 packages | 0 | 0 |
+
+*Legend: ✅ supported & proven · ⚠️ partial or broken · ❌ not supported*
+
+---
+
+## Features
+
+- **S3-compatible API** — Buckets, objects, `ListObjectsV1/V2` (prefix, delimiter, continuation tokens), `DeleteObjects` batch, Range/206 for video seeking, `CopyObject`.
+- **AWS Signature Version 4** — Header mode and presigned URLs (1–604800 s expiry), ±900 s skew, `host` required in SignedHeaders, constant-time comparison, payload hash verified against the streamed body.
+- **`aws-chunked` streaming uploads** — Signed chunk chains and unsigned-trailer framing, verified per chunk; tampered chunks rejected with `SignatureDoesNotMatch`.
+- **Multipart uploads** — create, uploadPart, complete, abort, listUploads, listParts, AWS-format composite ETags, 5 MiB minimum-part enforcement (`EntityTooSmall`).
+- **Streaming everything** — Bodies are pumped in 64 KiB chunks while MD5 and SHA-256 are computed on the fly; nothing ever loads a whole object into memory.
+- **Safe storage layout** — `sha256(key)`-sharded paths + UUID names: object keys never touch the filesystem path (traversal is structurally impossible), one directory never holds millions of entries, and the data root lives outside the web root.
+- **Shared-hosting plumbing** — `public/` docroot, `.htaccess` with the Authorization header passthrough SigV4 needs (Apache/LiteSpeed), dotfiles blocked, browser web installer.
+- **Minimal admin panel** — Session login with token-bucket throttling, access-key management, bucket overview, usage statistics, Connect panel, and audit log.
+- **CLI** — `migrate`, `gc` (expired uploads + orphan temp files), `key:create`, `doctor`.
+- **Honest errors** — AWS error taxonomy with correct HTTP statuses and `RequestId`, so boto3, rclone, and the AWS SDK fail gracefully instead of mysteriously.
+- **Zero runtime dependencies** — PHP ≥ 8.1 with `pdo_mysql`, `openssl`, `fileinfo`, and `mbstring`. PHPUnit and AWS SDK are dev-only.
+
+---
+
+## S3 API Coverage
+
+A feature counts as supported only when a test proves it through a real client:
+
+| Area | Operations |
+|---|---|
+| **Service** | `ListBuckets`, `GET /_health` |
+| **Buckets** | `CreateBucket`, `DeleteBucket` (empty only), `HeadBucket` |
+| **Objects** | `PutObject`, `GetObject` (+ Range/206), `HeadObject`, `DeleteObject`, `CopyObject` |
+| **Listing** | `ListObjectsV1`, `ListObjectsV2` (prefix, delimiter/CommonPrefixes, markers, tokens) |
+| **Batch** | `DeleteObjects` (≤1000 keys, Quiet mode) |
+| **Multipart** | `CreateMultipartUpload`, `UploadPart`, `CompleteMultipartUpload`, `AbortMultipartUpload`, `ListMultipartUploads`, `ListParts` |
+| **Auth** | SigV4 header, presigned query URLs, `aws-chunked` streaming |
+| **Next** | Checksum headers, conditional requests, boto3 suite, rclone docs |
+
+Full operation matrix with evidence: **[S3 Compatibility Matrix](/docs/s3-compatibility/).**
+
+---
+
+## Requirements
+
+- PHP **8.1+** with `pdo_mysql`, `openssl`, `fileinfo`, and `mbstring` extensions
+- MySQL 5.7+ / MariaDB 10.3+ (any database PDO can reach; migrations are portable)
+- Apache / LiteSpeed / nginx / Caddy, or PHP's built-in web server for development
+- Zero Composer dependencies on the server (run `--no-dev` or upload files directly)
+
+---
+
+## Quick Start
+
+### Shared Hosting (cPanel / LiteSpeed / Hostinger)
+
+```bash
+git clone https://github.com/Luckyyaduvanshiofficial/php-s3.git
+cd php-s3
+composer install --no-dev        # or upload files directly
+```
+
+1. Point your domain (or subdomain) document root at `public/`.
+2. Visit `https://your-domain.example/_admin/install` in your browser and complete the wizard — it writes `config.php` outside the public web root and runs database migrations.
+3. Log in to the admin panel, create an access key, and create a bucket.
+4. Point any S3 client at your domain using **path-style** endpoint configuration.
+
+For a step-by-step guide with Hostinger screenshots and tips, read the [Hostinger Deployment Guide](/docs/hostinger/).
+
+### Local Development
+
+```bash
+git clone https://github.com/Luckyyaduvanshiofficial/php-s3.git
+cd php-s3
+composer install
+php -S 127.0.0.1:8099 -t public public/index.php
+# Open http://127.0.0.1:8099/_admin/install
+```
+
+### Use with the Official AWS SDK for PHP
+
+```php
+use Aws\S3\S3Client;
+
+$s3 = new S3Client([
+    'version'                 => 'latest',
+    'region'                  => 'us-east-1',
+    'endpoint'                => 'https://your-domain.example',   // Your php-s3 endpoint URL
+    'use_path_style_endpoint' => true,                            // Required (path-style)
+    'credentials'             => [
+        'key'    => 'AKIA...',
+        'secret' => '...',
+    ],
+]);
+
+// Create bucket and upload object
+$s3->createBucket(['Bucket' => 'media']);
+$s3->putObject([
+    'Bucket'     => 'media',
+    'Key'        => 'video.mp4',
+    'SourceFile' => __DIR__ . '/video.mp4',
+]);
+
+// Multipart uploads, range downloads, and presigned URLs work out-of-the-box:
+$cmd = $s3->getCommand('GetObject', ['Bucket' => 'media', 'Key' => 'video.mp4']);
+$url = (string) $s3->createPresignedRequest($cmd, '+1 hour')->getUri();
+```
+
+---
+
+## Architecture
+
+```
+                       ┌────────────────────────────────────────────┐
+   S3 client ──HTTP──► │ public/index.php  (only web-reachable file)│
+  (SDK, rclone, …)     └──────────────┬─────────────────────────────┘
+                                      ▼
+        ┌──────────────┬──────────────┼──────────────┬───────────────┐
+        ▼              ▼              ▼              ▼               ▼
+   Http/Request   Auth/SigV4     S3/Operation    Admin panel     XML/Error
+   (only layer      (header +     resolver ──►  (session auth,   (AWS taxonomy,
+    touching        presigned +    dispatches    keys, usage)     XXE-safe)
+    $_SERVER)       aws-chunked)   to handlers
+                                      ▼
+                          S3/Handlers ──► Storage/ (streaming put/get,
+                                          sharded FS + MySQL index)
+```
+
+- **One stack, one entrypoint** — No framework, no middleware maze, single request dispatch path.
+- **Transport-agnostic core** — Nothing outside `src/Http/` reads `$_SERVER`; auth, XML parsing, routing, and errors are pure functions over strings and arrays.
+- **Staging + atomic rename** — Objects become visible only when fully written and verified.
+
+Read the full design rationale in [System Architecture](/docs/architecture/) and source audit in [Research & Audit](/docs/research/).
+
+---
+
+## Security
+
+- Strict SigV4 with **no bypass flags and no simple-auth mode** — Every request is signed.
+- Permission checked **before** existence (403 ≠ 404, prevents bucket and key enumeration).
+- Constant-time `hash_equals` for every signature, secret, and ETag comparison.
+- Bucket-name grammar validation, segment-based key canonicalization, and `^[a-f0-9]{32}$` uploadId whitelist.
+- XXE-safe XML (`DOCTYPE` and `ENTITY` declarations rejected before parsing, `LIBXML_NONET`, 8 MiB cap).
+- Storage directory sits outside the web root with directory traversal structurally impossible.
+- Token-bucket login throttling and audit logging in the admin panel; secrets displayed once at creation.
+
+---
+
+## CLI
+
+```bash
+php cli/php-s3.php migrate              # Apply schema migrations (idempotent)
+php cli/php-s3.php doctor               # Environment and configuration health check
+php cli/php-s3.php gc                   # Purge expired multipart uploads and orphan temp files
+php cli/php-s3.php key:create --owner=1 --buckets='*' --description=ci
+```
+
+---
+
+## Testing
+
+```bash
+composer test            # 191 tests, 334 assertions (PHPUnit 11)
+```
+
+Compatibility claims are validated against a live end-to-end test harness driving a running server with the real `aws/aws-sdk-php` plus raw-wire SigV4/aws-chunked probes (presigned URL expiry, multipart composite ETags, tampered-chunk rejection). Operation-by-operation evidence is detailed in the [S3 Compatibility Matrix](/docs/s3-compatibility/).
+
+---
+
+## Project Status & Roadmap
+
+| Phase | Scope | Status |
+|---|---|---|
+| **1 · Research** | Full source audit of 4 reference projects | ✅ [Research & Audit](/docs/research/) |
+| **2 · Architecture** | Design decisions recorded before code | ✅ [System Architecture](/docs/architecture/) |
+| **3 · MVP** | SigV4, buckets, objects, ranges, listing, installer, CLI | ✅ Shipped |
+| **4 · S3 compatibility** | Presigned URLs, DeleteObjects, multipart, aws-chunked | ✅ Shipped · [Matrix](/docs/s3-compatibility/) |
+| **5 · Hardening** | Rate limits, quotas, CORS, public-read policy, recovery | 🚧 In progress |
+| **6 · Documentation** | Deployment guides, boto3/rclone suites, SDK matrix CI | 🚧 Active |
+
+---
+
+## Documentation
+
+- [Installation Guide](/docs/install/) — Shared hosting deployment and web wizard walkthrough.
+- [Hostinger Guide](/docs/hostinger/) — Step-by-step setup on LiteSpeed / hPanel.
+- [Usage & SDKs](/docs/usage/) — Code samples for PHP, Python (boto3), Node.js, and AWS CLI.
+- [System Architecture](/docs/architecture/) — Architecture, storage layout, and auth pipeline.
+- [S3 Compatibility Matrix](/docs/s3-compatibility/) — Supported operations and evidence.
+- [Research & Audit](/docs/research/) — Source code analysis of reference implementations.
