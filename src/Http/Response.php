@@ -109,7 +109,7 @@ final class Response
                 header($name . ': ' . $value, true);
             }
             if (!isset($this->headers['X-Request-Id'])) {
-                header('X-Request-Id: ' . ($_SERVER['PHPS3_REQUEST_ID'] ?? '-'));
+                header('X-Request-Id: ' . (\PhpS3\Support\Logger::getRequestId() ?? '-'));
             }
             header('X-Content-Type-Options: nosniff');
         }
@@ -119,7 +119,7 @@ final class Response
             return;
         }
 
-        if ($this->body !== '' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') {
+        if ($this->body !== '' && strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'HEAD') {
             echo $this->body;
         }
         if (function_exists('flush')) {

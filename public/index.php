@@ -56,7 +56,7 @@ try {
 
     $isS3 = str_starts_with($request->path, '/') && !str_starts_with($request->path, '/_');
     if ($isS3) {
-        Response::xml(500, 'InternalError', $e->getMessage() === '' ? 'We encountered an internal error.' : 'We encountered an internal error.', $request->requestId)->send();
+        Response::xml(500, 'InternalError', 'We encountered an internal error. Please try again.', $request->requestId)->send();
     } else {
         Response::text(500, 'Internal Server Error')->send();
     }

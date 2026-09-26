@@ -67,4 +67,13 @@ final class KeySanitizerTest extends TestCase
         $once = KeySanitizer::canonicalize($key);
         self::assertSame($once, KeySanitizer::canonicalize($once));
     }
+
+    public function testCanonicalizeNormalizesDecomposedUnicode(): void
+    {
+        $decomposed = "cafe\xCC\x81/menu.txt";
+        $composed = "café/menu.txt";
+        self::assertNotSame($decomposed, $composed);
+        self::assertSame($composed, KeySanitizer::canonicalize($decomposed));
+    }
 }
+

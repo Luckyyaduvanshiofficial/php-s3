@@ -147,10 +147,10 @@ final class ObjectHandler
         if ($srcBucketRow === null) {
             throw S3Exception::noSuchBucket($srcBucket);
         }
-        if ($auth->allowedBuckets !== null
-            && !in_array($srcBucket, $auth->allowedBuckets, true)
-            && (int) $srcBucketRow['owner_id'] === $auth->ownerId
-        ) {
+        if ((int) $srcBucketRow['owner_id'] !== $auth->ownerId) {
+            throw S3Exception::accessDenied($source);
+        }
+        if ($auth->allowedBuckets !== null && !in_array($srcBucket, $auth->allowedBuckets, true)) {
             throw S3Exception::accessDenied($source);
         }
 
@@ -338,7 +338,7 @@ final class ObjectHandler
         }
         try {
             $finfo = new \finfo(FILEINFO_MIME_TYPE);
-            $type = @finfo->file($path);
+            $type = @$finfo->file($path);
             if (is_string($type) && $type !== '' && $type !== 'application/x-empty') {
                 return $type;
             }

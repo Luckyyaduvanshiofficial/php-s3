@@ -47,8 +47,8 @@ final class KeySanitizer
      */
     public static function canonicalize(string $key): string
     {
-        if (function_exists('grapheme_normalize')) {
-            $n = @grapheme_normalize($key, GRAPHEME_EXTRAS ?? 0);
+        if (class_exists(\Normalizer::class)) {
+            $n = \Normalizer::normalize($key, \Normalizer::FORM_C);
             return is_string($n) && $n !== '' ? $n : $key;
         }
 

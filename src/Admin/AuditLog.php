@@ -19,8 +19,14 @@ final class AuditLog
     }
 
     /** @param array<string, mixed> $details */
-    public function record(string $eventType, ?int $userId, ?string $username, array $details = []): void
-    {
+    public function record(
+        string $eventType,
+        ?int $userId,
+        ?string $username,
+        array $details = [],
+        ?string $ip = null,
+        ?string $userAgent = null,
+    ): void {
         try {
             $this->db->run(
                 'INSERT INTO audit_log (event_at, event_type, user_id, username, ip_masked, ua_hash, details_json)
@@ -29,8 +35,8 @@ final class AuditLog
                     $eventType,
                     $userId,
                     $username,
-                    IpAddress::mask((string) ($_SERVER['REMOTE_ADDR'] ?? '')),
-                    IpAddress::userAgentHash($_SERVER['HTTP_USER_AGENT'] ?? null),
+                    IpAddress::mask((string) ($ip ?? '')),
+                    IpAddress::userAgentHash($userAgent),
                     $details === [] ? null : json_encode($details, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE),
                 ],
             );

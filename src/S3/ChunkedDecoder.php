@@ -202,6 +202,12 @@ final class ChunkedDecoder
                     return $out;
                 }
                 // chunk fully read: expect CRLF then verify its signature
+                if (strlen($this->buf) < 2) {
+                    if ($this->buf === '' || $this->buf === "\r") {
+                        return $out;
+                    }
+                    return $this->fail('IncompleteBody: chunk data not terminated by CRLF');
+                }
                 if (strncmp($this->buf, "\r\n", 2) !== 0) {
                     return $this->fail('IncompleteBody: chunk data not terminated by CRLF');
                 }

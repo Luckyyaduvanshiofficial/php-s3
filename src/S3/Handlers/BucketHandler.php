@@ -99,7 +99,7 @@ final class BucketHandler
         if ($row === null) {
             throw S3Exception::noSuchBucket($bucket);
         }
-        if ((int) $row['owner_id'] !== $auth->ownerId && $auth->allowedBuckets !== null) {
+        if ((int) $row['owner_id'] !== $auth->ownerId) {
             throw S3Exception::accessDenied('/' . $bucket);
         }
         if ($this->objects->countInBucket((int) $row['id']) > 0) {

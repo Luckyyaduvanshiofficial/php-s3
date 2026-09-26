@@ -44,7 +44,7 @@ final class Kernel
 
     public function handle(Request $request): Response
     {
-        $_SERVER['PHPS3_REQUEST_ID'] = $request->requestId;
+        \PhpS3\Support\Logger::setRequestId($request->requestId);
 
         try {
             return $this->dispatch($request);
@@ -97,11 +97,17 @@ final class Kernel
             throw S3Exception::entityTooLarge($maxBytes);
         }
 
-        if ($parsed['bucket'] !== null && $auth->allowedBuckets !== null
-            && !in_array($parsed['bucket'], $auth->allowedBuckets, true)
-        ) {
-            // Existence is not revealed to unauthorized keys (anti-enumeration).
-            throw S3Exception::accessDenied('/' . $parsed['bucket']);
+        if ($parsed['bucket'] !== null) {
+            if ($auth->allowedBuckets !== null && !in_array($parsed['bucket'], $auth->allowedBuckets, true)) {
+                // Existence is not revealed to unauthorized keys (anti-enumeration).
+                throw S3Exception::accessDenied('/' . $parsed['bucket']);
+            }
+            if ($operation !== S3Operation::BucketCreate) {
+                $bucketRow = $this->buckets()->findByName($parsed['bucket']);
+                if ($bucketRow !== null && (int) $bucketRow['owner_id'] !== $auth->ownerId) {
+                    throw S3Exception::accessDenied('/' . $parsed['bucket']);
+                }
+            }
         }
 
         return $this->execute($request, $auth, $parsed, $operation);

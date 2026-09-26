@@ -12,6 +12,17 @@ final class Logger
 {
     /** @var array<string, resource> */
     private static array $handles = [];
+    private static ?string $requestId = null;
+
+    public static function setRequestId(?string $requestId): void
+    {
+        self::$requestId = $requestId;
+    }
+
+    public static function getRequestId(): ?string
+    {
+        return self::$requestId;
+    }
 
     /**
      * @param array<string, mixed> $context
@@ -41,7 +52,7 @@ final class Logger
             'ts' => gmdate('c'),
             'level' => $level,
             'msg' => $message,
-            'req' => $_SERVER['PHPS3_REQUEST_ID'] ?? null,
+            'req' => self::$requestId,
         ] + $context, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) . "\n";
 
         @flock($handle, LOCK_EX);

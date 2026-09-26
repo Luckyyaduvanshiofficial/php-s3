@@ -47,7 +47,7 @@ final class AdminKernel
             return Response::redirect(302, '/_admin/install');
         }
 
-        $this->startSession();
+        $this->startSession($request);
         $path = $request->path;
         $method = $request->method;
 
@@ -62,7 +62,7 @@ final class AdminKernel
             }
             if ($path === '/_admin/logout' && $method === 'POST') {
                 $this->requireCsrf($request);
-                $this->audit()->record('logout', (int) ($_SESSION['user_id'] ?? 0), (string) ($_SESSION['username'] ?? ''));
+                $this->audit()->record('logout', (int) ($_SESSION['user_id'] ?? 0), (string) ($_SESSION['username'] ?? ''), [], $request->remoteAddr, $request->header('user-agent'));
                 $_SESSION = [];
                 session_destroy();
 
@@ -118,14 +118,14 @@ final class AdminKernel
 
     public function install(Request $request): Response
     {
-        $this->startSession();
+        $this->startSession($request);
 
         if (php_s3_installed()) {
             return Response::redirect(302, '/_admin/login');
         }
 
         if ($request->method === 'GET') {
-            return Views::install($this->environmentChecks(), null);
+            return Views::install($this->environmentChecks($request), null);
         }
 
         $this->requireCsrf($request);
@@ -178,7 +178,7 @@ final class AdminKernel
         }
 
         if ($errors !== []) {
-            return Views::install($this->environmentChecks(), $errors);
+            return Views::install($this->environmentChecks($request), $errors);
         }
 
         try {
@@ -204,7 +204,7 @@ final class AdminKernel
             ];
             $this->writeConfig($config);
         } catch (\Throwable $e) {
-            return Views::install($this->environmentChecks(), ['Installation failed: ' . $e->getMessage()]);
+            return Views::install($this->environmentChecks($request), ['Installation failed: ' . $e->getMessage()]);
         }
 
         return Response::redirect(302, '/_admin/login');
@@ -217,7 +217,8 @@ final class AdminKernel
         $this->requireCsrf($request);
         $input = $this->parseForm($request);
         $username = trim((string) ($input['username'] ?? ''));
-        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        $ip = $request->remoteAddr;
+        $ua = $request->header('user-agent');
 
         // Token-bucket throttling BEFORE the credential check (PHP-Auth
         // pattern): one bucket per IP, one per username — replaces the crude
@@ -228,7 +229,7 @@ final class AdminKernel
 
         $worst = $ipAttempt['accepted'] ? $userAttempt : $ipAttempt;
         if (!$worst['accepted']) {
-            $this->audit()->record('login.throttled', null, $username, ['retry_after' => $worst['retry_after']]);
+            $this->audit()->record('login.throttled', null, $username, ['retry_after' => $worst['retry_after']], $ip, $ua);
 
             return Response::make(
                 429,
@@ -239,12 +240,12 @@ final class AdminKernel
 
         $user = $this->users->verify($username, (string) ($input['password'] ?? ''));
         if ($user === null) {
-            $this->audit()->record('login.failed', null, $username);
+            $this->audit()->record('login.failed', null, $username, [], $ip, $ua);
             return Views::login('Invalid username or password.');
         }
 
         $throttle->reset(['login', 'user', $username]);
-        $this->audit()->record('login.success', $user['id'], $user['username']);
+        $this->audit()->record('login.success', $user['id'], $user['username'], [], $ip, $ua);
 
         session_regenerate_id(true);
         $_SESSION['user_id'] = $user['id'];
@@ -261,6 +262,8 @@ final class AdminKernel
         $this->requireCsrf($request);
         $input = $this->parseForm($request);
         $action = (string) ($input['action'] ?? '');
+        $ip = $request->remoteAddr;
+        $ua = $request->header('user-agent');
 
         switch ($action) {
             case 'create':
@@ -277,7 +280,7 @@ final class AdminKernel
                 $this->audit()->record('key.create', $user['id'], $user['username'], [
                     'access_key_id' => $created['access_key_id'],
                     'allowed' => $allowedList,
-                ]);
+                ], $ip, $ua);
                 $_SESSION['flash'] = 'Created — copy the secret now, it is never shown again: '
                     . $created['access_key_id'] . ' / ' . $created['secret_access_key'];
                 break;
@@ -287,14 +290,14 @@ final class AdminKernel
                 $this->audit()->record('key.toggle', $user['id'], $user['username'], [
                     'id' => (int) ($input['id'] ?? 0),
                     'enabled' => ($input['enabled'] ?? '0') === '1',
-                ]);
+                ], $ip, $ua);
                 break;
 
             case 'delete':
                 $this->accessKeys->delete((int) ($input['id'] ?? 0), $user['id']);
                 $this->audit()->record('key.delete', $user['id'], $user['username'], [
                     'id' => (int) ($input['id'] ?? 0),
-                ]);
+                ], $ip, $ua);
                 break;
 
             default:
@@ -309,6 +312,8 @@ final class AdminKernel
         $this->requireCsrf($request);
         $input = $this->parseForm($request);
         $action = (string) ($input['action'] ?? '');
+        $ip = $request->remoteAddr;
+        $ua = $request->header('user-agent');
 
         try {
             if ($action === 'create') {
@@ -316,7 +321,7 @@ final class AdminKernel
                 BucketNameValidator::validate($name);
                 $this->buckets->create($name, $user['id']);
                 @mkdir($this->storage->root() . '/buckets/' . $name, 0750, true);
-                $this->audit()->record('bucket.create', $user['id'], $user['username'], ['bucket' => $name]);
+                $this->audit()->record('bucket.create', $user['id'], $user['username'], ['bucket' => $name], $ip, $ua);
                 $_SESSION['flash'] = "Bucket '{$name}' created.";
             } elseif ($action === 'delete') {
                 $name = trim((string) ($input['name'] ?? ''));
@@ -326,7 +331,7 @@ final class AdminKernel
                         $_SESSION['flash'] = "Bucket '{$name}' is not empty.";
                     } else {
                         $this->buckets->delete((int) $row['id']);
-                        $this->audit()->record('bucket.delete', $user['id'], $user['username'], ['bucket' => $name]);
+                        $this->audit()->record('bucket.delete', $user['id'], $user['username'], ['bucket' => $name], $ip, $ua);
                         $_SESSION['flash'] = "Bucket '{$name}' deleted.";
                     }
                 }
@@ -340,7 +345,7 @@ final class AdminKernel
 
     /* -------------------------------------------------------- plumbing */
 
-    private function startSession(): void
+    private function startSession(?Request $request = null): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
             return;
@@ -350,8 +355,7 @@ final class AdminKernel
         ini_set('session.use_trans_sid', '0');
         ini_set('session.cookie_httponly', '1');
 
-        $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+        $secure = $request?->isHttps ?? false;
         session_name('php_s3_session');
         session_set_cookie_params([
             'lifetime' => 0,
@@ -416,7 +420,7 @@ final class AdminKernel
     }
 
     /** @return array<string, array{ok: bool, detail: string}> */
-    private function environmentChecks(): array
+    private function environmentChecks(?Request $request = null): array
     {
         $dataRootDefault = self::defaultDataRoot();
         $checks = [];
@@ -442,8 +446,7 @@ final class AdminKernel
                 : 'ready to write config.php to ' . self::configPath(),
         ];
         $checks['https'] = [
-            'ok' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-                || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'),
+            'ok' => $request?->isHttps ?? false,
             'detail' => 'HTTPS strongly recommended (SigV4 over HTTP is forgeable)',
         ];
         $checks['upload_limits'] = [

@@ -144,7 +144,7 @@ final class ObjectRepository
             $params = [$bucketId];
             $where = 'WHERE bucket_id = ?';
             if ($prefix !== '') {
-                $where .= ' AND object_key LIKE ? ESCAPE \'\\\\\'';
+                $where .= " AND object_key LIKE ? ESCAPE '!'";
                 $params[] = $this->likeEscape($prefix) . '%';
             }
             if ($fetchAfter !== null) {
@@ -165,10 +165,10 @@ final class ObjectRepository
 
             foreach ($rows as $row) {
                 $key = (string) $row['object_key'];
-                $lastKey = $key;
-                $fetchAfter = $key;
 
                 if ($delimiter !== '' && $insideCollapsedPrefix !== null && str_starts_with($key, $insideCollapsedPrefix)) {
+                    $lastKey = $key;
+                    $fetchAfter = $key;
                     continue; // already collapsed into a CommonPrefix
                 }
 
@@ -186,6 +186,8 @@ final class ObjectRepository
                             $prefixes[$common] = true;
                             $insideCollapsedPrefix = $common;
                         }
+                        $lastKey = $key;
+                        $fetchAfter = $key;
                         continue;
                     }
                 }
@@ -204,6 +206,8 @@ final class ObjectRepository
                     'storageClass' => 'STANDARD',
                     'storage' => [],
                 ];
+                $lastKey = $key;
+                $fetchAfter = $key;
             }
 
             if (count($rows) < 1000) {
@@ -223,7 +227,7 @@ final class ObjectRepository
 
     private function likeEscape(string $value): string
     {
-        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
+        return str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $value);
     }
 
     private function hydrate(array $row): array

@@ -154,6 +154,40 @@ final class ChunkedDecoderTest extends TestCase
         self::assertNotNull($state->error);
     }
 
+    public function testSignedChunkWithByteByByteDelivery(): void
+    {
+        if (!in_array('test_byte_filter', stream_get_filters(), true)) {
+            stream_filter_register('test_byte_filter', ChunkedTestByteFilter::class);
+        }
+        $body = $this->signedBody(['hello ', 'world'], trailer: false);
+
+        $auth = new AuthContext(
+            accessKeyId: 'AKIAEXAMPLEKEY000EX',
+            secret: self::SECRET,
+            ownerId: 1,
+            allowedBuckets: null,
+            region: self::REGION,
+            shortDate: $this->shortDate,
+            payloadHash: self::PAYLOAD_SIGNED,
+            isPresigned: false,
+            chunkSeedSignature: $this->seed,
+            amzDate: $this->amzDate,
+        );
+
+        $raw = fopen('php://temp', 'r+b');
+        fwrite($raw, $body);
+        rewind($raw);
+
+        stream_filter_append($raw, 'test_byte_filter', STREAM_FILTER_READ);
+
+        [$stream, $state] = ChunkedDecoder::wrap($raw, $auth);
+        $decoded = stream_get_contents($stream);
+        fclose($stream);
+
+        self::assertSame('hello world', $decoded);
+        ChunkedDecoder::assertValid($state, 11);
+    }
+
     /* --------------------------------------------------------- helpers */
 
     /** @param list<string> $parts */
@@ -212,3 +246,26 @@ final class ChunkedDecoderTest extends TestCase
         return [$stream, $state];
     }
 }
+
+/**
+ * Splits stream data into 1-byte buckets to test filter resilience against packet fragmentation.
+ */
+final class ChunkedTestByteFilter extends \php_user_filter
+{
+    #[\Override]
+    public function filter($in, $out, &$consumed, bool $closing): int
+    {
+        while ($bucket = stream_bucket_make_writeable($in)) {
+            $data = (string) $bucket->data;
+            $len = strlen($data);
+            $consumed += $len;
+            for ($i = 0; $i < $len; $i++) {
+                $b = stream_bucket_new($this->stream, $data[$i]);
+                stream_bucket_append($out, $b);
+            }
+        }
+
+        return PSFS_PASS_ON;
+    }
+}
+
