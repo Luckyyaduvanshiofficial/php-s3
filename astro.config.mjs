@@ -32,6 +32,7 @@ export default defineConfig({
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/Luckyyaduvanshiofficial/php-s3' },
 			],
 			sidebar: [
+				{ label: 'Overview', slug: 'docs' },
 				{
 					label: 'Getting Started',
 					items: [
@@ -48,6 +49,7 @@ export default defineConfig({
 						{ label: 'Research & Audit', slug: 'docs/research' },
 					],
 				},
+				{ label: 'Changelog', slug: 'changelog' },
 			],
 		}),
 	],
