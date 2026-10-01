@@ -1,0 +1,577 @@
+/* ==========================================================================
+   php-s3 — design system: "the deployment manifest"
+   Warm paper, ink, one freight-stamp rust accent. Mono for every label and
+   count. Edges carry hierarchy; shadows are removed. Decoration must be
+   information.
+   ========================================================================== */
+
+@import '@fontsource-variable/archivo/index.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+
+/* tokens ------------------------------------------------------------------ */
+
+:root {
+	--p-font-sans: 'Archivo Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+	--p-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+	--p-radius: 3px;
+	--p-radius-lg: 5px;
+
+	/* Starlight semantic mapping (resolves against the theme palette below) */
+	--sl-font: var(--p-font-sans);
+	--sl-font-mono: var(--p-font-mono);
+	--sl-text-body: 1.0625rem;
+	--sl-line-height: 1.72;
+	--sl-line-height-headings: 1.15;
+	--sl-content-width: 43rem;
+	--sl-text-h1: clamp(1.9rem, 1.5rem + 1.4vw, 2.35rem);
+
+	--sl-color-bg: var(--p-canvas);
+	--sl-color-bg-sidebar: var(--p-canvas);
+	--sl-color-bg-inline-code: var(--p-kraft);
+	--sl-color-bg-accent: var(--p-stamp);
+
+	--sl-color-text: var(--p-text);
+	--sl-color-text-accent: var(--p-stamp-strong);
+	--sl-color-text-invert: var(--p-on-ink);
+
+	--sl-color-hairline-light: var(--p-rule);
+	--sl-color-hairline: var(--p-rule);
+	--sl-color-hairline-shade: var(--p-rule-strong);
+
+	--sl-color-white: var(--p-ink);
+	--sl-color-black: var(--p-canvas);
+	--sl-color-gray-1: var(--p-ink);
+	--sl-color-gray-2: var(--p-text);
+	--sl-color-gray-3: var(--p-muted);
+	--sl-color-gray-4: var(--p-faint);
+	--sl-color-gray-5: var(--p-rule-strong);
+	--sl-color-gray-6: var(--p-rule);
+	--sl-color-gray-7: var(--p-sunken);
+
+	--sl-color-accent-low: var(--p-stamp-soft);
+	--sl-color-accent: var(--p-stamp);
+	--sl-color-accent-high: var(--p-stamp-strong);
+
+	--sl-color-blue-low: var(--p-steel-soft);
+	--sl-color-blue: var(--p-steel);
+	--sl-color-blue-high: var(--p-steel-strong);
+	--sl-color-green-low: var(--p-ok-soft);
+	--sl-color-green: var(--p-ok);
+	--sl-color-green-high: var(--p-ok-strong);
+	--sl-color-orange-low: var(--p-warn-soft);
+	--sl-color-orange: var(--p-warn);
+	--sl-color-orange-high: var(--p-warn-strong);
+	--sl-color-purple-low: var(--p-stamp-soft);
+	--sl-color-purple: var(--p-stamp);
+	--sl-color-purple-high: var(--p-stamp-strong);
+	--sl-color-red-low: var(--p-danger-soft);
+	--sl-color-red: var(--p-danger);
+	--sl-color-red-high: var(--p-danger-strong);
+
+	--sl-shadow-sm: none;
+	--sl-shadow-md: none;
+	--sl-shadow-lg: none;
+}
+
+/* dark theme — Starlight's default ---------------------------------------- */
+
+:root,
+::backdrop {
+	--p-canvas: oklch(0.205 0.012 70);
+	--p-surface: oklch(0.248 0.012 70);
+	--p-sunken: oklch(0.183 0.012 70);
+	--p-kraft: oklch(0.272 0.014 72);
+
+	--p-ink: oklch(0.955 0.007 85);
+	--p-text: oklch(0.878 0.01 80);
+	--p-muted: oklch(0.705 0.011 78);
+	--p-faint: oklch(0.6 0.011 78);
+
+	--p-rule: oklch(0.315 0.012 72);
+	--p-rule-strong: oklch(0.43 0.013 72);
+
+	--p-stamp: oklch(0.72 0.128 55);
+	--p-stamp-strong: oklch(0.815 0.105 58);
+	--p-stamp-soft: oklch(0.305 0.05 45);
+	--p-on-stamp: oklch(0.205 0.012 70);
+	--p-on-ink: oklch(0.205 0.012 70);
+
+	--p-steel: oklch(0.72 0.055 240);
+	--p-steel-strong: oklch(0.83 0.045 240);
+	--p-steel-soft: oklch(0.3 0.03 240);
+	--p-ok: oklch(0.75 0.09 150);
+	--p-ok-strong: oklch(0.86 0.07 150);
+	--p-ok-soft: oklch(0.3 0.04 152);
+	--p-warn: oklch(0.8 0.1 80);
+	--p-warn-strong: oklch(0.885 0.08 82);
+	--p-warn-soft: oklch(0.31 0.04 75);
+	--p-danger: oklch(0.72 0.125 28);
+	--p-danger-strong: oklch(0.845 0.09 28);
+	--p-danger-soft: oklch(0.31 0.05 28);
+
+	--p-term-bg: oklch(0.205 0.006 80);
+	--p-term-fg: oklch(0.9 0.03 90);
+	--p-term-dim: oklch(0.66 0.02 85);
+	--p-term-accent: oklch(0.78 0.12 62);
+
+	--sl-color-bg-nav: oklch(0.205 0.012 70 / 0.9);
+	--sl-color-backdrop-overlay: oklch(0.16 0.01 70 / 0.72);
+}
+
+/* light theme ------------------------------------------------------------- */
+
+:root[data-theme='light'],
+[data-theme='light'] ::backdrop {
+	--p-canvas: oklch(0.966 0.007 85);
+	--p-surface: oklch(0.988 0.004 85);
+	--p-sunken: oklch(0.938 0.011 82);
+	--p-kraft: oklch(0.924 0.016 80);
+
+	--p-ink: oklch(0.245 0.014 72);
+	--p-text: oklch(0.34 0.013 74);
+	--p-muted: oklch(0.475 0.012 75);
+	--p-faint: oklch(0.6 0.011 78);
+
+	--p-rule: oklch(0.855 0.011 80);
+	--p-rule-strong: oklch(0.715 0.013 78);
+
+	--p-stamp: oklch(0.545 0.152 42);
+	--p-stamp-strong: oklch(0.475 0.14 40);
+	--p-stamp-soft: oklch(0.935 0.03 55);
+	--p-on-stamp: oklch(0.985 0.005 85);
+	--p-on-ink: oklch(0.985 0.005 85);
+
+	--p-steel: oklch(0.5 0.05 245);
+	--p-steel-strong: oklch(0.42 0.05 245);
+	--p-steel-soft: oklch(0.94 0.014 245);
+	--p-ok: oklch(0.52 0.095 150);
+	--p-ok-strong: oklch(0.42 0.08 152);
+	--p-ok-soft: oklch(0.945 0.026 152);
+	--p-warn: oklch(0.62 0.115 75);
+	--p-warn-strong: oklch(0.5 0.1 72);
+	--p-warn-soft: oklch(0.95 0.03 80);
+	--p-danger: oklch(0.525 0.155 27);
+	--p-danger-strong: oklch(0.45 0.145 27);
+	--p-danger-soft: oklch(0.945 0.028 30);
+
+	--p-term-bg: oklch(0.945 0.032 90);
+	--p-term-fg: oklch(0.32 0.02 70);
+	--p-term-dim: oklch(0.52 0.02 75);
+	--p-term-accent: oklch(0.5 0.13 45);
+
+	--sl-color-bg-nav: oklch(0.966 0.007 85 / 0.9);
+	--sl-color-backdrop-overlay: oklch(0.35 0.02 75 / 0.42);
+}
+
+/* base -------------------------------------------------------------------- */
+
+html {
+	scrollbar-color: var(--p-rule-strong) transparent;
+}
+
+body {
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+	background: var(--p-stamp-soft);
+	color: var(--p-ink);
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+	outline: 2px solid var(--p-stamp);
+	outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	::before,
+	::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+/* markdown content -------------------------------------------------------- */
+
+.sl-markdown-content {
+	font-size: var(--sl-text-body);
+}
+
+.sl-markdown-content :is(h1, h2, h3, h4, h5, h6) {
+	color: var(--p-ink);
+	letter-spacing: -0.015em;
+	text-wrap: balance;
+}
+
+.sl-markdown-content h1 {
+	font-weight: 640;
+	padding-bottom: 0.75rem;
+	border-bottom: 2px solid var(--p-ink);
+}
+
+/* page title (outside the markdown body) */
+
+h1#_top {
+	font-weight: 640;
+	letter-spacing: -0.02em;
+	padding-bottom: 0.7rem;
+	border-bottom: 2px solid var(--p-ink);
+}
+
+.sl-markdown-content h2 {
+	font-weight: 620;
+	font-size: 1.45rem;
+	margin-top: 2.75rem;
+	padding-top: 1.1rem;
+	border-top: 1px solid var(--p-rule);
+}
+
+.sl-markdown-content h3 {
+	font-weight: 620;
+	font-size: 1.16rem;
+}
+
+.sl-markdown-content :is(p, li) {
+	text-wrap: pretty;
+}
+
+.sl-markdown-content a:not(:where(.not-content *)) {
+	text-underline-offset: 0.18em;
+	text-decoration-thickness: 1px;
+	text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
+}
+
+.sl-markdown-content a:not(:where(.not-content *)):hover {
+	text-decoration-color: currentColor;
+}
+
+.sl-markdown-content code:not(:where(.expressive-code *)) {
+	font-family: var(--p-font-mono);
+	font-size: 0.84em;
+	background: var(--p-kraft);
+	border: 1px solid var(--p-rule);
+	border-radius: var(--p-radius);
+	padding: 0.1em 0.38em;
+}
+
+.sl-markdown-content blockquote:not(:where(.not-content *)) {
+	border-inline-start: 2px solid var(--p-stamp);
+	padding-inline-start: 1.1rem;
+	color: var(--p-text);
+	font-style: normal;
+}
+
+/* tables: a manifest form, not a spreadsheet */
+
+.sl-markdown-content table:not(:where(.not-content *)) {
+	border: 1px solid var(--p-rule-strong);
+	border-radius: var(--p-radius);
+	font-size: 0.95rem;
+}
+
+.sl-markdown-content th:not(:where(.not-content *)) {
+	font-family: var(--p-font-mono);
+	font-size: 0.6875rem;
+	font-weight: 500;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+	color: var(--p-muted);
+	background: var(--p-sunken);
+	border-bottom: 1px solid var(--p-rule-strong);
+}
+
+.sl-markdown-content td:not(:where(.not-content *)) {
+	border-top: 1px solid var(--p-rule);
+	vertical-align: top;
+}
+
+.sl-markdown-content table :is(td, th) {
+	font-variant-numeric: tabular-nums;
+}
+
+/* status marks and tags */
+
+.mark,
+.tag {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.32em;
+	font-family: var(--p-font-mono);
+	font-size: 0.6875rem;
+	line-height: 1.5;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	white-space: nowrap;
+	padding: 0.08em 0.5em;
+	border: 1px solid;
+	border-radius: var(--p-radius);
+	vertical-align: 0.06em;
+}
+
+.mark--yes,
+.tag--ok,
+.tag--fix,
+.tag--security {
+	color: var(--p-ok-strong);
+	background: var(--p-ok-soft);
+	border-color: color-mix(in oklch, var(--p-ok) 42%, transparent);
+}
+
+.tag--security {
+	color: var(--p-danger-strong);
+	background: var(--p-danger-soft);
+	border-color: color-mix(in oklch, var(--p-danger) 42%, transparent);
+}
+
+.mark--partial,
+.tag--part,
+.tag--changed {
+	color: var(--p-warn-strong);
+	background: var(--p-warn-soft);
+	border-color: color-mix(in oklch, var(--p-warn) 42%, transparent);
+}
+
+.mark--no,
+.tag--no,
+.tag--removed {
+	color: var(--p-danger-strong);
+	background: var(--p-danger-soft);
+	border-color: color-mix(in oklch, var(--p-danger) 42%, transparent);
+}
+
+.mark--neutral,
+.tag--added,
+.tag--docs,
+.tag--tests {
+	color: var(--p-steel-strong);
+	background: var(--p-steel-soft);
+	border-color: color-mix(in oklch, var(--p-steel) 42%, transparent);
+}
+
+.tag--added {
+	color: var(--p-stamp-strong);
+	background: var(--p-stamp-soft);
+	border-color: color-mix(in oklch, var(--p-stamp) 42%, transparent);
+}
+
+/* changelog: a release log, ruled like a ledger */
+
+.changelog h2 {
+	font-family: var(--p-font-mono);
+	font-size: 0.875rem;
+	font-weight: 500;
+	letter-spacing: 0.03em;
+	color: var(--p-ink);
+	border-top: 1px solid var(--p-rule);
+	margin-top: 2.5rem;
+	padding-top: 1.35rem;
+}
+
+.changelog h2:first-of-type {
+	border-top: none;
+	padding-top: 0;
+}
+
+.changelog ul {
+	list-style: none;
+	padding-inline-start: 0;
+}
+
+.changelog li {
+	position: relative;
+	padding-inline-start: 1.15rem;
+}
+
+.changelog li::before {
+	content: '';
+	position: absolute;
+	inset-inline-start: 0;
+	inset-block-start: 0.62em;
+	inline-size: 5px;
+	block-size: 5px;
+	background: var(--p-stamp);
+}
+
+.changelog strong {
+	font-family: var(--p-font-mono);
+	font-size: 0.6875rem;
+	font-weight: 500;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--p-muted);
+	background: var(--p-kraft);
+	border: 1px solid var(--p-rule);
+	border-radius: var(--p-radius);
+	padding: 0.08em 0.45em;
+	margin-inline-end: 0.4em;
+	vertical-align: 0.06em;
+	white-space: nowrap;
+}
+
+/* asides */
+
+.starlight-aside {
+	border: 1px solid var(--p-rule);
+	border-inline-start: 2px solid var(--sl-color-asides-border);
+	border-radius: var(--p-radius);
+	background: color-mix(in oklch, var(--sl-color-asides-border) 10%, var(--p-sunken));
+}
+
+.starlight-aside__title {
+	font-family: var(--p-font-mono);
+	font-size: 0.75rem;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+/* chrome: header, sidebar, toc, pagination, search ------------------------ */
+
+header.header {
+	border-bottom: 1px solid var(--p-rule);
+	backdrop-filter: blur(8px);
+}
+
+.site-title {
+	font-family: var(--p-font-mono);
+	font-size: 1.0625rem;
+	font-weight: 600;
+	letter-spacing: -0.02em;
+	color: var(--p-ink);
+	gap: 0.55rem;
+}
+
+.site-title::before {
+	content: '';
+	inline-size: 0.68em;
+	block-size: 0.68em;
+	background: var(--p-stamp);
+	border-radius: 2px;
+}
+
+#starlight__sidebar {
+	border-inline-end: 1px solid var(--p-rule);
+}
+
+#starlight__sidebar .group-label {
+	font-family: var(--p-font-mono);
+	font-size: 0.6875rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--p-muted);
+}
+
+#starlight__sidebar a {
+	border-radius: var(--p-radius);
+}
+
+#starlight__sidebar a:hover {
+	background: var(--p-kraft);
+	color: var(--p-ink);
+}
+
+#starlight__sidebar a[aria-current='page'] {
+	background: var(--p-kraft);
+	color: var(--p-ink);
+	font-weight: 560;
+	box-shadow: inset 2px 0 0 var(--p-stamp);
+}
+
+.right-sidebar a {
+	border-radius: var(--p-radius);
+}
+
+.right-sidebar a:hover {
+	color: var(--p-ink);
+}
+
+#starlight__on-this-page {
+	font-family: var(--p-font-mono);
+	font-size: 0.6875rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--p-muted);
+}
+
+.pagination-links a {
+	border: 1px solid var(--p-rule);
+	border-radius: var(--p-radius);
+	box-shadow: none;
+}
+
+.pagination-links a:hover {
+	border-color: var(--p-rule-strong);
+	background: var(--p-kraft);
+}
+
+.pagination-links :is(.link-title, .link-label) {
+	font-family: var(--p-font-mono);
+}
+
+.pagination-links .link-title {
+	font-family: var(--p-font-sans);
+	font-weight: 560;
+	color: var(--p-ink);
+}
+
+dialog {
+	border: 1px solid var(--p-rule-strong);
+	border-radius: var(--p-radius-lg);
+}
+
+/* buttons */
+
+.sl-link-button {
+	border-radius: var(--p-radius);
+	font-weight: 560;
+}
+
+.sl-link-button.primary {
+	background: var(--p-ink);
+	border-color: var(--p-ink);
+	color: var(--p-on-ink);
+}
+
+.sl-link-button.primary:hover {
+	background: var(--p-stamp);
+	border-color: var(--p-stamp);
+	color: var(--p-on-stamp);
+}
+
+.sl-link-button.secondary {
+	background: transparent;
+	border-color: var(--p-rule-strong);
+	color: var(--p-ink);
+}
+
+.sl-link-button.secondary:hover {
+	background: var(--p-kraft);
+	border-color: var(--p-rule-strong);
+	color: var(--p-ink);
+}
+
+.sl-link-button.minimal {
+	color: var(--p-text);
+}
+
+.sl-link-button.minimal:hover {
+	color: var(--p-stamp-strong);
+}
+
+/* expressive code frames: square, quiet, no lift */
+
+.expressive-code .frame {
+	box-shadow: none;
+}
+
+.expressive-code .frame.has-title:not(.is-terminal) .title {
+	font-family: var(--p-font-mono);
+	font-size: 0.75rem;
+	letter-spacing: 0.04em;
+}
