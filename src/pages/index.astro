@@ -2,7 +2,6 @@
 import '../styles/custom.css';
 
 const repo = 'https://github.com/Luckyyaduvanshiofficial/php-s3';
-const demo = 'https://demo.php-s3.codaipro.com';
 ---
 
 <!doctype html>
@@ -74,7 +73,6 @@ const demo = 'https://demo.php-s3.codaipro.com';
 						<div class="cta">
 							<a class="btn btn--primary" href="/docs/install/">Install guide</a>
 							<a class="btn btn--ghost" href="/docs/">Browse the docs</a>
-							<a class="btn btn--plain" href={demo}>Live demo</a>
 						</div>
 					</div>
 
@@ -431,7 +429,6 @@ aws --endpoint-url https://DOMAIN s3 ls</code></pre>
 					<a href="/docs/">Docs</a>
 					<a href="/changelog/">Changelog</a>
 					<a href={repo}>GitHub</a>
-					<a href={demo}>Live demo</a>
 				</nav>
 			</div>
 			<div class="wrap foot-fine">
@@ -646,19 +643,6 @@ aws --endpoint-url https://DOMAIN s3 ls</code></pre>
 
 	.btn--ghost:hover {
 		background: var(--p-kraft);
-	}
-
-	.btn--plain {
-		color: var(--p-stamp-strong);
-		padding-inline: 0.5rem;
-		text-decoration: underline;
-		text-underline-offset: 0.2em;
-		text-decoration-thickness: 1px;
-		text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
-	}
-
-	.btn--plain:hover {
-		text-decoration-color: currentColor;
 	}
 
 	/* hero */
@@ -1260,6 +1244,16 @@ aws --endpoint-url https://DOMAIN s3 ls</code></pre>
 		.cmp thead th:not(:first-child) {
 			white-space: normal;
 			overflow-wrap: anywhere;
+		}
+	}
+
+	@media (max-width: 22.5rem) {
+		.top-inner {
+			gap: 0.5rem 0.6rem;
+		}
+
+		.btn {
+			padding-inline: 0.7rem;
 		}
 	}
 </style>
