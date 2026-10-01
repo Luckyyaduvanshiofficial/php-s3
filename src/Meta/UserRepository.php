@@ -53,7 +53,14 @@ final class UserRepository
             'SELECT id, username, password_hash FROM users WHERE username = ?',
             [$username],
         );
-        if ($row === null || !password_verify($password, (string) $row['password_hash'])) {
+        if ($row === null) {
+            // Burn the same bcrypt work as a real check so a missing username
+            // is not distinguishable from a wrong password by response time.
+            password_verify($password, '$2y$10$usesomesillystringfore7hnbRJHxXVLeakoG8K30oukPsA.ztMG');
+
+            return null;
+        }
+        if (!password_verify($password, (string) $row['password_hash'])) {
             return null;
         }
 

@@ -60,7 +60,7 @@ final class LocalFilesystemStorage implements StorageInterface
 
     /* ---------------------------------------------------------- staging */
 
-    public function stage($inputStream, ?int $expectedBytes): StagedObject
+    public function stage($inputStream, ?int $expectedBytes, ?int $maxBytes = null): StagedObject
     {
         $tmpPath = $this->root . '/tmp/' . bin2hex(random_bytes(16));
         $out = fopen($tmpPath, 'x+b');
@@ -82,6 +82,12 @@ final class LocalFilesystemStorage implements StorageInterface
                     continue;
                 }
                 $size += strlen($chunk);
+                if ($maxBytes !== null && $size > $maxBytes) {
+                    // Requests without Content-Length (HTTP-level chunked
+                    // encoding) would otherwise stream forever and fill the
+                    // disk. Enforced mid-read, before anything is committed.
+                    throw S3Exception::entityTooLarge($maxBytes);
+                }
                 if ($expectedBytes !== null && $size > $expectedBytes + 1) {
                     // +1 slack, then fail below — cheaper than erroring on first extra byte
                     break;
@@ -91,9 +97,12 @@ final class LocalFilesystemStorage implements StorageInterface
                 fwrite($out, $chunk);
             }
             fflush($out);
-        } finally {
+        } catch (\Throwable $e) {
             fclose($out);
+            @unlink($tmpPath);
+            throw $e;
         }
+        fclose($out);
 
         if ($expectedBytes !== null && $size !== $expectedBytes) {
             @unlink($tmpPath);

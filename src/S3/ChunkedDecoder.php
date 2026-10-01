@@ -175,10 +175,14 @@ final class ChunkedDecoder
                 }
                 $line = rtrim(substr($this->buf, 0, $nl), "\r");
                 $this->buf = substr($this->buf, $nl + 1);
-                if (!preg_match('/^([0-9a-fA-F]+)(?:;chunk-signature=([0-9a-fA-F]{64}))?$/', $line, $m)) {
+                if (!preg_match('/^([0-9a-fA-F]{1,16})(?:;chunk-signature=([0-9a-fA-F]{64}))?$/', $line, $m)) {
                     return $this->fail('IncompleteBody: malformed chunk header');
                 }
-                $size = (int) hexdec($m[1]);
+                $size = hexdec($m[1]);
+                if (!is_int($size)) {
+                    // > PHP_INT_MAX would silently overflow the int cast.
+                    return $this->fail('IncompleteBody: malformed chunk header');
+                }
                 $sig = strtolower($m[2] ?? '');
                 if ($this->params['signed']) {
                     if ($sig === '') {

@@ -21,6 +21,7 @@ declare(strict_types=1);
 
 namespace PhpS3\Tests\Unit;
 
+use PhpS3\S3\Exception\S3Exception;
 use PhpS3\S3\Exception\UnsupportedOperation;
 use PhpS3\S3\OperationResolver;
 use PhpS3\S3\S3Operation;
@@ -130,7 +131,7 @@ final class OperationResolverTest extends TestCase
         yield 'ListObjectsV2' => ['GET', '/my-bucket?list-type=2', S3Operation::ListObjectsV2];
         yield 'ListObjectsV2 trailing slash' => ['GET', '/my-bucket/?list-type=2', S3Operation::ListObjectsV2];
         yield 'CreateBucket trailing slash' => ['PUT', '/my-bucket/', S3Operation::BucketCreate];
-        yield 'GetBucketLocation' => ['GET', '/my-bucket?location', S3Operation::BucketHead];
+        yield 'GetBucketLocation' => ['GET', '/my-bucket?location', S3Operation::BucketLocation];
         yield 'PutObject' => ['PUT', '/b/k.txt', S3Operation::ObjectPut];
         yield 'CopyObject' => ['PUT', '/b/k.txt', S3Operation::ObjectCopy, ['x-amz-copy-source' => '/src/k.txt']];
         yield 'GetObject' => ['GET', '/b/k.txt', S3Operation::ObjectGet];
@@ -159,6 +160,53 @@ final class OperationResolverTest extends TestCase
         $this->expectException(UnsupportedOperation::class);
         [$r, $p] = $this->parsed('PATCH', '/b/k.txt');
         OperationResolver::resolve($r, $p);
+    }
+
+    /**
+     * Unimplemented subresources must never fall through to a neighbouring
+     * operation: DeleteBucketLifecycle mapping to DeleteBucket would destroy
+     * data, PutObjectAcl mapping to PutObject would overwrite the object.
+     */
+    #[DataProvider('unsupportedSubresourceProvider')]
+    public function testUnsupportedSubresourcesNeverMapToDestructiveOperations(string $method, string $uri): void
+    {
+        [$r, $p] = $this->parsed($method, $uri);
+
+        try {
+            OperationResolver::resolve($r, $p);
+            self::fail("Expected NotImplemented for {$method} {$uri}");
+        } catch (S3Exception $e) {
+            self::assertSame('NotImplemented', $e->errorCode);
+        }
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function unsupportedSubresourceProvider(): iterable
+    {
+        yield 'DeleteBucketLifecycle must not delete the bucket' => ['DELETE', '/my-bucket?lifecycle'];
+        yield 'PutBucketAcl must not create a bucket' => ['PUT', '/my-bucket?acl'];
+        yield 'PutBucketVersioning must not create a bucket' => ['PUT', '/my-bucket?versioning'];
+        yield 'GetBucketAcl must not list objects' => ['GET', '/my-bucket?acl'];
+        yield 'GetBucketVersions must not list objects' => ['GET', '/my-bucket?versions'];
+        yield 'PutObjectAcl must not overwrite the object' => ['PUT', '/b/k.txt?acl'];
+        yield 'GetObjectAcl must not leak object bytes' => ['GET', '/b/k.txt?acl'];
+        yield 'GetObjectTorrent is unsupported' => ['GET', '/b/k.txt?torrent'];
+        yield 'GetObject partNumber is unsupported' => ['GET', '/b/k.txt?partNumber=2'];
+        yield 'HeadObject partNumber is unsupported' => ['HEAD', '/b/k.txt?partNumber=2'];
+        yield 'PUT with ?uploads is invalid' => ['PUT', '/b/k.txt?uploads'];
+        yield 'DELETE with bucket ?uploads is invalid' => ['DELETE', '/my-bucket?uploads'];
+        yield 'GET with bucket ?delete is invalid' => ['GET', '/my-bucket?delete'];
+        yield 'PUT with ?location is invalid' => ['PUT', '/my-bucket?location'];
+    }
+
+    public function testVirtualHostedBucketDetectionIsCaseInsensitive(): void
+    {
+        $r = php_s3_test_request('GET', '/obj.txt', ['host' => 'MyBucket.S3.Test.Local']);
+        $p = OperationResolver::parsePath($r, 's3.test.local');
+
+        self::assertSame('object', $p['scope']);
+        self::assertSame('mybucket', $p['bucket']);
+        self::assertSame('obj.txt', $p['key']);
     }
 
     public function testAdminScopeNeverResolvesToS3Operation(): void

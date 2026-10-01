@@ -22,6 +22,7 @@ declare(strict_types=1);
 namespace PhpS3\S3;
 
 use PhpS3\Http\Request;
+use PhpS3\S3\Exception\S3Exception;
 use PhpS3\S3\Exception\UnsupportedOperation;
 
 /**
@@ -35,6 +36,24 @@ final class OperationResolver
     public const SCOPE_SERVICE = 'service';
     public const SCOPE_BUCKET = 'bucket';
     public const SCOPE_OBJECT = 'object';
+
+    /**
+     * S3 subresources php-s3 does not implement. They MUST NOT fall through
+     * to a neighbouring operation: `DELETE /bucket?lifecycle` mapping to
+     * DeleteBucket would destroy data, `PUT /key?acl` mapping to PutObject
+     * would overwrite the object with the ACL document. Rejected with an
+     * honest NotImplemented instead.
+     */
+    private const UNSUPPORTED_BUCKET_SUBRESOURCES = [
+        'accelerate', 'acl', 'analytics', 'cors', 'encryption', 'intelligent-tiering',
+        'inventory', 'lifecycle', 'logging', 'metrics', 'notification', 'object-lock',
+        'ownershipControls', 'policy', 'policyStatus', 'publicAccessBlock', 'replication',
+        'requestPayment', 'tagging', 'versioning', 'versions', 'website',
+    ];
+
+    private const UNSUPPORTED_OBJECT_SUBRESOURCES = [
+        'acl', 'attributes', 'legal-hold', 'retention', 'restore', 'select', 'tagging', 'torrent',
+    ];
 
     /**
      * Split a decoded request path into scope + resource names.
@@ -67,8 +86,9 @@ final class OperationResolver
 
         // virtual-hosted style: {bucket}.{base}.rest-of-path
         if ($baseDomain !== '' && $segments !== []) {
-            $host = $request->host();
-            $suffix = '.' . $baseDomain;
+            // DNS hostnames are case-insensitive; bucket names are always lowercase.
+            $host = strtolower($request->host());
+            $suffix = '.' . strtolower($baseDomain);
             if (str_ends_with($host, $suffix)) {
                 $candidate = substr($host, 0, -strlen($suffix));
                 if ($candidate !== '' && !str_contains($candidate, '.') && self::looksLikeBucket($candidate)) {
@@ -114,13 +134,26 @@ final class OperationResolver
 
             case self::SCOPE_BUCKET:
                 if ($has('location')) {
-                    return S3Operation::BucketHead; // GetBucketLocation maps to HeadBucket semantics here
+                    if ($method === 'GET') {
+                        return S3Operation::BucketLocation;
+                    }
+                    throw S3Exception::notImplemented("The 'location' subresource only supports GET.");
                 }
-                if ($has('delete') && $method === 'POST') {
-                    return S3Operation::ObjectsDelete;
+                if ($has('delete')) {
+                    if ($method === 'POST') {
+                        return S3Operation::ObjectsDelete;
+                    }
+                    throw S3Exception::notImplemented("The 'delete' subresource only supports POST.");
                 }
                 if ($has('uploads')) {
-                    return S3Operation::MultipartListUploads;
+                    if ($method === 'GET') {
+                        return S3Operation::MultipartListUploads;
+                    }
+                    throw S3Exception::notImplemented("The 'uploads' subresource only supports GET.");
+                }
+                $bucketSub = self::unsupportedSubresource($queryKeys, self::UNSUPPORTED_BUCKET_SUBRESOURCES);
+                if ($bucketSub !== null) {
+                    throw S3Exception::notImplemented("The '{$bucketSub}' subresource is not supported by php-s3.");
                 }
                 if ($method === 'PUT') {
                     return S3Operation::BucketCreate;
@@ -142,9 +175,13 @@ final class OperationResolver
             case self::SCOPE_OBJECT:
                 if ($has('uploadId')) {
                     if ($has('partNumber')) {
-                        return $method === 'PUT'
-                            ? S3Operation::MultipartUploadPart
-                            : S3Operation::MultipartListParts;
+                        if ($method === 'PUT') {
+                            return S3Operation::MultipartUploadPart;
+                        }
+                        if ($method === 'GET' || $method === 'HEAD') {
+                            return S3Operation::MultipartListParts;
+                        }
+                        throw S3Exception::notImplemented("'uploadId' with 'partNumber' only supports PUT, GET and HEAD.");
                     }
                     if ($method === 'POST') {
                         return S3Operation::MultipartComplete;
@@ -155,12 +192,30 @@ final class OperationResolver
                     if ($method === 'GET' || $method === 'HEAD') {
                         return S3Operation::MultipartListParts;
                     }
+                    throw S3Exception::notImplemented("The 'uploadId' subresource does not support {$method}.");
                 }
-                if ($has('uploads') && $method === 'POST') {
-                    return S3Operation::MultipartCreate;
+                if ($has('uploads')) {
+                    if ($method === 'POST') {
+                        return S3Operation::MultipartCreate;
+                    }
+                    throw S3Exception::notImplemented("The 'uploads' subresource only supports POST.");
                 }
-                if ($has('delete') && $method === 'POST') {
-                    return S3Operation::ObjectsDelete;
+                if ($has('delete')) {
+                    if ($method === 'POST') {
+                        return S3Operation::ObjectsDelete;
+                    }
+                    throw S3Exception::notImplemented("The 'delete' subresource only supports POST.");
+                }
+                $objectSub = self::unsupportedSubresource($queryKeys, self::UNSUPPORTED_OBJECT_SUBRESOURCES);
+                if ($objectSub !== null) {
+                    throw S3Exception::notImplemented("The '{$objectSub}' subresource is not supported by php-s3.");
+                }
+                if ($has('partNumber') && ($method === 'GET' || $method === 'HEAD')) {
+                    // Streaming the whole object for a part request would
+                    // silently hand the client wrong bytes.
+                    throw S3Exception::notImplemented(
+                        "Reading a single part via 'partNumber' is not supported; use a byte Range.",
+                    );
                 }
                 switch ($method) {
                     case 'PUT':
@@ -185,5 +240,22 @@ final class OperationResolver
     private static function looksLikeBucket(string $name): bool
     {
         return (bool) preg_match('/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/', $name);
+    }
+
+    /**
+     * First query key naming an S3 subresource php-s3 does not implement.
+     *
+     * @param list<string> $queryKeys
+     * @param list<string> $known
+     */
+    private static function unsupportedSubresource(array $queryKeys, array $known): ?string
+    {
+        foreach ($queryKeys as $key) {
+            if (in_array($key, $known, true)) {
+                return $key;
+            }
+        }
+
+        return null;
     }
 }

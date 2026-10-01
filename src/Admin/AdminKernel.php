@@ -348,6 +348,10 @@ final class AdminKernel
                         $_SESSION['flash'] = "Bucket '{$name}' is not empty.";
                     } else {
                         $this->buckets->delete((int) $row['id']);
+                        $dir = $this->storage->root() . '/buckets/' . $name;
+                        if (is_dir($dir)) {
+                            @rmdir($dir);
+                        }
                         $this->audit()->record('bucket.delete', $user['id'], $user['username'], ['bucket' => $name], $ip, $ua);
                         $_SESSION['flash'] = "Bucket '{$name}' deleted.";
                     }
@@ -387,13 +391,13 @@ final class AdminKernel
         }
 
         // Panel-only security headers (never sent on the S3 data path).
+        // no-store applies to every panel response — the login and installer
+        // pages embed CSRF tokens and must never be cached.
         if (!headers_sent()) {
             header('X-Frame-Options: SAMEORIGIN');
             header('X-Content-Type-Options: nosniff');
             header('Referrer-Policy: same-origin');
-            if (isset($_SESSION['user_id'])) {
-                header('Cache-Control: no-store');
-            }
+            header('Cache-Control: no-store');
         }
     }
 

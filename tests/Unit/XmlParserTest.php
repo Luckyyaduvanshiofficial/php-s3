@@ -77,13 +77,39 @@ final class XmlParserTest extends TestCase
         $body = '<?xml version="1.0"?><!DOCTYPE Delete [<!ENTITY x SYSTEM "file:///etc/passwd">]>'
             . '<Delete><Object><Key>&x;</Key></Object></Delete>';
 
-        // LIBXML_NONET: external entities are not resolved; the document
-        // either fails to parse or the key never becomes file contents.
+        // DOCTYPE is rejected outright: no entity resolution can ever run,
+        // and no parser quirks are reachable.
+        $this->expectException(S3Exception::class);
+        $this->expectExceptionMessageMatches('/DOCTYPE/');
+
+        XmlParser::deleteRequest($body);
+    }
+
+    public function testReadBodyReadsACompleteStream(): void
+    {
+        $stream = fopen('php://temp', 'r+');
+        fwrite($stream, '<Delete></Delete>');
+        rewind($stream);
+
         try {
-            $parsed = XmlParser::deleteRequest($body);
-            self::assertStringNotContainsString('root:', $parsed['objects'][0] ?? '');
-        } catch (S3Exception $e) {
-            self::assertSame('MalformedXML', $e->errorCode);
+            self::assertSame('<Delete></Delete>', XmlParser::readBody($stream));
+        } finally {
+            fclose($stream);
+        }
+    }
+
+    public function testReadBodyRejectsBodiesOverTheCap(): void
+    {
+        $stream = fopen('php://temp', 'r+');
+        fwrite($stream, str_repeat('a', 8 * 1024 * 1024 + 1));
+        rewind($stream);
+
+        try {
+            $this->expectException(S3Exception::class);
+            $this->expectExceptionMessageMatches('/too large/');
+            XmlParser::readBody($stream);
+        } finally {
+            fclose($stream);
         }
     }
 

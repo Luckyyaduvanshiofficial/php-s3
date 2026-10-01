@@ -55,7 +55,8 @@ try {
             ['file' => $e->getFile(), 'line' => $e->getLine()],
             $ctx['log_file'],
         );
-    } elseif (in_array(PHP_SAPI, ['cli', 'cli-server'], true) || $ctx['debug']) {
+    } else {
+        // No configured log file (pre-install): never swallow the error.
         error_log((string) $e);
     }
 

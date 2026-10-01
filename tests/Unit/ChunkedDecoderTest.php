@@ -171,6 +171,20 @@ final class ChunkedDecoderTest extends TestCase
         self::assertNotNull($state->error);
     }
 
+    public function testChunkSizeOverflowRejected(): void
+    {
+        // 16 hex digits exceed PHP_INT_MAX; the size must be rejected rather
+        // than overflowing the int cast and misparsing the remainder.
+        $body = "ffffffffffffffff\r\ndata\r\n";
+
+        [$stream, $state] = $this->wrap($body, self::PAYLOAD_UNSIGNED, null);
+        stream_get_contents($stream);
+        fclose($stream);
+
+        self::assertNotNull($state->error);
+        self::assertStringContainsString('malformed chunk header', $state->error);
+    }
+
     public function testSignedChunkWithByteByByteDelivery(): void
     {
         if (!in_array('test_byte_filter', stream_get_filters(), true)) {

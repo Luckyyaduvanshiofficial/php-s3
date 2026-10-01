@@ -33,6 +33,34 @@ final class XmlParser
     private const MAX_BODY_BYTES = 8 * 1024 * 1024;
 
     /**
+     * Read an XML request body from a stream, hard-capped at MAX_BODY_BYTES.
+     * Reading straight into a string before validating would let a client
+     * exhaust memory with an unbounded body (no Content-Length).
+     *
+     * @param resource $stream
+     * @throws S3Exception MalformedXML when the body exceeds the cap
+     */
+    public static function readBody($stream): string
+    {
+        $body = '';
+        while (!feof($stream)) {
+            $chunk = fread($stream, 65536);
+            if ($chunk === false) {
+                break;
+            }
+            if ($chunk === '') {
+                continue;
+            }
+            $body .= $chunk;
+            if (strlen($body) > self::MAX_BODY_BYTES) {
+                throw S3Exception::malformedXml('The XML you provided was too large.');
+            }
+        }
+
+        return $body;
+    }
+
+    /**
      * DeleteObjects request body.
      *
      * @return array{quiet: bool, objects: list<string>}
@@ -129,6 +157,13 @@ final class XmlParser
         } finally {
             libxml_clear_errors();
             libxml_use_internal_errors($previous);
+        }
+
+        // S3 request documents never carry a DTD. Rejecting DOCTYPE outright
+        // removes the entire entity-expansion class (billion laughs, XXE,
+        // parser quirks) instead of relying on libxml defaults.
+        if ($doc->doctype !== null) {
+            throw S3Exception::malformedXml('DOCTYPE declarations are not allowed in request XML.');
         }
 
         $root = $doc->documentElement;

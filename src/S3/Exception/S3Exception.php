@@ -110,7 +110,7 @@ class S3Exception extends \RuntimeException
 
     public static function entityTooLarge(int $maxBytes): self
     {
-        return new self('EntityTooLarge', 'Your proposed upload exceeds the maximum allowed object size.', 411, ['MaxSizeAllowed' => (string) $maxBytes]);
+        return new self('EntityTooLarge', 'Your proposed upload exceeds the maximum allowed object size.', 400, ['MaxSizeAllowed' => (string) $maxBytes]);
     }
 
     public static function incompleteBody(string $expected, string $actual): self

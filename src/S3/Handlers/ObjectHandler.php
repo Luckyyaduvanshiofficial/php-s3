@@ -79,6 +79,10 @@ final class ObjectHandler
     private function put(Request $request, AuthContext $auth, string $bucket, int $bucketId, string $key): Response
     {
         KeySanitizer::validate($key);
+        // User metadata is a request-shape concern: validate it before reading
+        // a single body byte so oversized metadata yields InvalidArgument
+        // (not a 500 after the upload has already been staged).
+        $userMetadata = UserMetadata::extract($request);
 
         $streaming = $auth->isStreaming();
         if ($streaming) {
@@ -105,7 +109,7 @@ final class ObjectHandler
 
         // For streaming, byte-exact enforcement lives in ChunkedDecoder::assertValid
         // (signature errors must win over a short-read IncompleteBody).
-        $staged = $this->storage->stage($body, $chunkState !== null ? null : $declared);
+        $staged = $this->storage->stage($body, $chunkState !== null ? null : $declared, $this->maxObjectBytes);
         try {
             if ($chunkState !== null) {
                 ChunkedDecoder::assertValid($chunkState, $declared);
@@ -125,7 +129,7 @@ final class ObjectHandler
 
         $previous = $this->objects->get($bucketId, $key);
         try {
-            $this->objects->put(
+            $row = $this->objects->put(
                 $bucketId,
                 $key,
                 $storagePath,
@@ -133,12 +137,17 @@ final class ObjectHandler
                 $staged->md5,
                 $contentType,
                 self::stripChunkedEncoding($request->headers),
-                UserMetadata::extract($request),
+                $userMetadata,
             );
         } catch (\Throwable $e) {
             // DB write failed → remove the new blob so we don't orphan it.
             $this->storage->delete($bucket, $storagePath);
             throw S3Exception::internalError('metadata write failed');
+        }
+        if ($row !== [] && ($row['storage_path'] ?? '') !== $storagePath) {
+            // A concurrent overwrite of the same key won the row: our blob is
+            // now unreferenced — remove it instead of leaking it forever.
+            $this->storage->delete($bucket, $storagePath);
         }
 
         if ($previous !== null && ($previous['storage_path'] ?? '') !== $storagePath) {
@@ -178,20 +187,25 @@ final class ObjectHandler
         if ($bucketId === (int) $srcBucketRow['id'] && $srcKey === $key) {
             throw S3Exception::invalidArgument('x-amz-copy-source', $source, 'Cannot copy to the same key.');
         }
+        if ((int) $srcObject['size'] > $this->maxObjectBytes) {
+            throw S3Exception::entityTooLarge($this->maxObjectBytes);
+        }
+
+        $directive = strtoupper((string) ($request->header('x-amz-metadata-directive') ?? 'COPY'));
+        $replacementMetadata = $directive === 'REPLACE' ? UserMetadata::extract($request) : null;
 
         $in = $this->storage->open($srcBucket, (string) $srcObject['storage_path']);
         try {
-            $staged = $this->storage->stage($in, (int) $srcObject['size']);
+            $staged = $this->storage->stage($in, (int) $srcObject['size'], $this->maxObjectBytes);
         } finally {
             fclose($in);
         }
 
         try {
-            $directive = strtoupper((string) ($request->header('x-amz-metadata-directive') ?? 'COPY'));
             $metadata = $directive === 'REPLACE'
                 ? [
                     'content_type' => $request->header('content-type') ?: (string) $srcObject['content_type'],
-                    'user_metadata' => UserMetadata::extract($request),
+                    'user_metadata' => $replacementMetadata,
                     'headers' => $request->headers,
                 ]
                 : [
@@ -212,7 +226,7 @@ final class ObjectHandler
 
         $previous = $this->objects->get($bucketId, $key);
         try {
-            $this->objects->put(
+            $row = $this->objects->put(
                 $bucketId,
                 $key,
                 $storagePath,
@@ -225,6 +239,9 @@ final class ObjectHandler
         } catch (\Throwable) {
             $this->storage->delete($bucket, $storagePath);
             throw S3Exception::internalError('metadata write failed');
+        }
+        if ($row !== [] && ($row['storage_path'] ?? '') !== $storagePath) {
+            $this->storage->delete($bucket, $storagePath);
         }
 
         if ($previous !== null && ($previous['storage_path'] ?? '') !== $storagePath) {
@@ -266,8 +283,7 @@ final class ObjectHandler
     /** POST /{bucket}?delete — batch delete, up to 1000 keys per request. */
     private function deleteObjects(Request $request, string $bucket, int $bucketId): Response
     {
-        $body = stream_get_contents($request->bodyStream());
-        $parsed = XmlParser::deleteRequest($body === false ? '' : $body);
+        $parsed = XmlParser::deleteRequest(XmlParser::readBody($request->bodyStream()));
 
         if (count($parsed['objects']) > 1000) {
             throw S3Exception::invalidRequest('You may not specify more than 1000 keys in a single DeleteObjects request.');

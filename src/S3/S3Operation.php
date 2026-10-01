@@ -34,6 +34,7 @@ enum S3Operation: string
     case BucketCreate = 'CreateBucket';
     case BucketHead = 'HeadBucket';
     case BucketDelete = 'DeleteBucket';
+    case BucketLocation = 'GetBucketLocation';
 
     /* object scope --------------------------------------------------- */
     case ObjectPut = 'PutObject';

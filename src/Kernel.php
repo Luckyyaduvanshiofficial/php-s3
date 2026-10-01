@@ -145,6 +145,7 @@ final class Kernel
             case S3Operation::BucketCreate:
             case S3Operation::BucketHead:
             case S3Operation::BucketDelete:
+            case S3Operation::BucketLocation:
                 return $this->services()->bucket->handle($request, $auth, $bucket, $op);
 
             case S3Operation::ObjectPut:

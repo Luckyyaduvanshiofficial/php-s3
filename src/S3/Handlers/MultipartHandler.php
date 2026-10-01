@@ -69,7 +69,7 @@ final class MultipartHandler
             S3Operation::MultipartComplete => $this->complete($request, $bucket, $bucketId, (string) $key),
             S3Operation::MultipartAbort => $this->abort($request, $bucketId, (string) $key),
             S3Operation::MultipartListParts => $this->listParts($request, $bucket, $bucketId, (string) $key),
-            S3Operation::MultipartListUploads => $this->listUploads($bucketId, $request),
+            S3Operation::MultipartListUploads => $this->listUploads($bucket, $bucketId, $request),
             default => throw S3Exception::methodNotAllowed(),
         };
     }
@@ -130,7 +130,7 @@ final class MultipartHandler
             : [$request->bodyStream(), null];
 
         // Streaming: signature/length errors surface via ChunkedDecoder::assertValid below.
-        $staged = $this->storage->stage($body, $chunkState !== null ? null : $declared);
+        $staged = $this->storage->stage($body, $chunkState !== null ? null : $declared, self::MAX_PART_BYTES);
         try {
             if ($chunkState !== null) {
                 ChunkedDecoder::assertValid($chunkState, $declared);
@@ -158,8 +158,7 @@ final class MultipartHandler
         $uploadId = $this->uploadId($request);
         $upload = $this->requireUpload($bucketId, $key, $uploadId);
 
-        $body = stream_get_contents($request->bodyStream());
-        $requested = XmlParser::completeRequest($body === false ? '' : $body);
+        $requested = XmlParser::completeRequest(XmlParser::readBody($request->bodyStream()));
         if ($requested === []) {
             throw S3Exception::malformedXml('You must specify at least one part in the CompleteMultipartUpload request.');
         }
@@ -217,7 +216,7 @@ final class MultipartHandler
 
         $previousObject = $this->objects->get($bucketId, $key);
         try {
-            $this->objects->put(
+            $row = $this->objects->put(
                 $bucketId,
                 $key,
                 $storagePath,
@@ -230,6 +229,9 @@ final class MultipartHandler
         } catch (\Throwable) {
             $this->storage->delete($bucket, $storagePath);
             throw S3Exception::internalError('metadata write failed');
+        }
+        if ($row !== [] && ($row['storage_path'] ?? '') !== $storagePath) {
+            $this->storage->delete($bucket, $storagePath);
         }
 
         if ($previousObject !== null && ($previousObject['storage_path'] ?? '') !== $storagePath) {
@@ -283,7 +285,7 @@ final class MultipartHandler
 
     /* --------------------------------------------------- LIST UPLOADS */
 
-    private function listUploads(int $bucketId, Request $request): Response
+    private function listUploads(string $bucket, int $bucketId, Request $request): Response
     {
         $prefix = (string) ($request->query()['prefix'] ?? '');
         $rows = $this->uploads->listForBucket($bucketId, $prefix);
@@ -296,7 +298,7 @@ final class MultipartHandler
             ];
         }
 
-        return Response::make(200, Xml::listMultipartUploads('', $uploads, $prefix), [
+        return Response::make(200, Xml::listMultipartUploads($bucket, $uploads, $prefix), [
             'Content-Type' => 'application/xml',
             'x-amz-request-id' => $request->requestId,
         ]);

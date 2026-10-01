@@ -48,6 +48,11 @@ final class ObjectResponder
             'Last-Modified' => gmdate('D, d M Y H:i:s \G\M\T', strtotime((string) $object['updated_at'] . ' UTC')),
             'Accept-Ranges' => 'bytes',
             'X-Amz-Request-Id' => $request->requestId,
+            // Object bytes share the origin with the admin panel. `sandbox`
+            // gives any served document an opaque origin with scripts
+            // disabled, so an uploaded .html/.svg/.xml cannot ride the
+            // admin session. Images, media and downloads are unaffected.
+            'Content-Security-Policy' => 'sandbox',
         ];
         foreach (['content-encoding' => 'Content-Encoding', 'content-disposition' => 'Content-Disposition',
                   'cache-control' => 'Cache-Control', 'content-language' => 'Content-Language'] as $dbCol => $header) {
@@ -80,20 +85,20 @@ final class ObjectResponder
             return Response::make(200, '', $headers);
         }
 
-        // Existence check (throws NoSuchKey) before any headers go out;
-        // Response reopens the path for the streaming loop.
-        $this->storage->absolutePath('', (string) $object['storage_path']);
+        // Existence check (throws NoSuchKey) before any headers go out; the
+        // response reopens the path for the streaming loop.
+        $file = $this->storage->absolutePath('', (string) $object['storage_path']);
 
         if ($range !== null) {
             [$start, $end] = $range;
             $headers['Content-Length'] = (string) ($end - $start + 1);
             $headers['Content-Range'] = sprintf('bytes %d-%d/%d', $start, $end, $size);
-            return Response::file(206, $this->pathOf($object), $headers, [$start, $end]);
+            return Response::file(206, $file, $headers, [$start, $end]);
         }
 
         $headers['Content-Length'] = (string) $size;
 
-        return Response::file(200, $this->pathOf($object), $headers);
+        return Response::file(200, $file, $headers);
     }
 
     /** @param array<string, mixed> $object */
@@ -102,12 +107,6 @@ final class ObjectResponder
         $this->storage->delete('', (string) $object['storage_path']);
 
         return Response::make(204);
-    }
-
-    /** @param array<string, mixed> $object */
-    private function pathOf(array $object): string
-    {
-        return $this->storage->absolutePath('', (string) $object['storage_path']);
     }
 
     private function etagMatches(string $header, string $etag): bool

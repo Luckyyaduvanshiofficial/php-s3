@@ -51,6 +51,7 @@ final class BucketHandler
             S3Operation::BucketCreate => $this->create($bucket, $auth),
             S3Operation::BucketHead => $this->head($bucket),
             S3Operation::BucketDelete => $this->delete($bucket, $auth),
+            S3Operation::BucketLocation => $this->location($bucket),
             default => throw S3Exception::methodNotAllowed(),
         };
     }
@@ -108,6 +109,21 @@ final class BucketHandler
         }
 
         return Response::make(200, '', ['x-amz-bucket-region' => $this->region()]);
+    }
+
+    /** GetBucketLocation: us-east-1 is represented by an empty LocationConstraint. */
+    private function location(string $bucket): Response
+    {
+        if ($this->buckets->findByName($bucket) === null) {
+            throw S3Exception::noSuchBucket($bucket);
+        }
+
+        $body = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+            . '<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">'
+            . ($this->regionNeedsLocationConstraint() ? htmlspecialchars($this->region(), ENT_XML1) : '')
+            . '</LocationConstraint>';
+
+        return Response::make(200, $body, ['Content-Type' => 'application/xml']);
     }
 
     private function delete(string $bucket, AuthContext $auth): Response

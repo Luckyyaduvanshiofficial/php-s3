@@ -56,11 +56,12 @@ final class ListHandler
             throw S3Exception::invalidArgument('encoding-type', $encodingType, 'Unsupported encoding-type.');
         }
 
-        $maxKeys = (int) ($query['max-keys'] ?? 1000);
-        if ($maxKeys < 0) {
-            throw S3Exception::invalidArgument('max-keys', (string) $maxKeys, 'max-keys must be non-negative.');
+        $maxKeysRaw = (string) ($query['max-keys'] ?? '1000');
+        if (!preg_match('/^\d{1,10}$/', $maxKeysRaw)) {
+            throw S3Exception::invalidArgument('max-keys', $maxKeysRaw, 'max-keys must be a non-negative integer.');
         }
-        $maxKeys = min($maxKeys, 1000);
+        // Values above 1000 are clamped, not rejected (AWS behaviour).
+        $maxKeys = min((int) $maxKeysRaw, 1000);
 
         // Continuation state ------------------------------------------------
         $afterKey = null;
