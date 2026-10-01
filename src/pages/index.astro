@@ -289,21 +289,21 @@ const demo = 'https://demo.php-s3.codaipro.com';
 							<span class="spec-no">01</span>
 							<h3>Upload the files</h3>
 							<p>Clone the repository or drop the release into your document root. No build step on the server.</p>
-							<pre class="term" tabindex="0"><code><span class="c"># extract the release, then</span>
+							<pre class="term"><code><span class="c"># extract the release, then</span>
 composer install --no-dev</code></pre>
 						</div>
 						<div class="step">
 							<span class="spec-no">02</span>
 							<h3>Run the installer</h3>
 							<p>One form: database credentials, your admin account, and the data directory outside the web root.</p>
-							<pre class="term" tabindex="0"><code><span class="c"># open on your domain</span>
+							<pre class="term"><code><span class="c"># open on your domain</span>
 /_admin/install</code></pre>
 						</div>
 						<div class="step">
 							<span class="spec-no">03</span>
 							<h3>Point your client</h3>
 							<p>Create a bucket and an access key in the panel, then connect any S3 tool with path-style addressing. Replace DOMAIN with your endpoint.</p>
-							<pre class="term" tabindex="0"><code><span class="c"># real request, real signature</span>
+							<pre class="term"><code><span class="c"># real request, real signature</span>
 aws --endpoint-url https://DOMAIN s3 ls</code></pre>
 						</div>
 					</div>
@@ -949,6 +949,19 @@ aws --endpoint-url https://DOMAIN s3 ls</code></pre>
 		color: var(--p-text);
 	}
 
+	/* pin the capability labels while the matrix scrolls sideways */
+	.cmp :is(thead th:first-child, tbody th) {
+		position: sticky;
+		inset-inline-start: 0;
+		z-index: 1;
+		background: var(--p-canvas);
+		box-shadow: 1px 0 0 var(--p-rule);
+	}
+
+	.cmp thead th:first-child {
+		background: var(--p-sunken);
+	}
+
 	.cmp tbody tr + tr th,
 	.cmp tbody tr + tr td {
 		border-top: 1px solid var(--p-rule);
@@ -1011,7 +1024,8 @@ aws --endpoint-url https://DOMAIN s3 ls</code></pre>
 		font-family: var(--p-font-mono);
 		font-size: 0.78125rem;
 		line-height: 1.75;
-		overflow-x: auto;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
 		scrollbar-width: thin;
 		scrollbar-color: var(--p-rule-strong) transparent;
 	}
@@ -1236,6 +1250,16 @@ aws --endpoint-url https://DOMAIN s3 ls</code></pre>
 
 		.manifest {
 			padding-block-end: 5rem;
+		}
+
+		.cmp :is(thead th:first-child, tbody th) {
+			width: 7.5rem;
+			min-width: 7.5rem;
+		}
+
+		.cmp thead th:not(:first-child) {
+			white-space: normal;
+			overflow-wrap: anywhere;
 		}
 	}
 </style>
