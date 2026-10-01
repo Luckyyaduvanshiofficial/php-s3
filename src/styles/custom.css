@@ -233,7 +233,7 @@ h1#_top {
 
 .sl-markdown-content h3 {
 	font-weight: 620;
-	font-size: 1.16rem;
+	font-size: 1.25rem;
 }
 
 .sl-markdown-content :is(p, li) {
@@ -363,9 +363,10 @@ h1#_top {
 
 .changelog h2 {
 	font-family: var(--p-font-mono);
-	font-size: 0.875rem;
-	font-weight: 500;
-	letter-spacing: 0.03em;
+	font-size: 1.0625rem;
+	font-weight: 600;
+	line-height: 1.35;
+	letter-spacing: 0.02em;
 	color: var(--p-ink);
 	border-top: 1px solid var(--p-rule);
 	margin-top: 2.5rem;
