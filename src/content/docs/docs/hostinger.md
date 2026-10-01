@@ -3,8 +3,6 @@ title: Hostinger
 description: Deploy php-s3 on Hostinger shared hosting (hPanel) — subdomains, MySQL, SSL, File Manager.
 ---
 
-# Deploying on Hostinger
-
 Tested on Hostinger shared hosting (hPanel, LiteSpeed, PHP 8.3) — the same flow works on
 any hPanel plan with a domain and MySQL.
 

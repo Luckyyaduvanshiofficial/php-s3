@@ -3,8 +3,6 @@ title: Usage
 description: Admin dashboard, access keys, and connecting AWS CLI, boto3, rclone and SDKs to php-s3.
 ---
 
-# Usage
-
 ## The admin panel
 
 `https://your-domain.example/_admin/login` — session login, throttled (10 attempts /

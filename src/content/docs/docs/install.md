@@ -3,8 +3,6 @@ title: Installation
 description: Install php-s3 on any PHP host — files, database, web installer wizard.
 ---
 
-# Installation
-
 php-s3 installs like WordPress: upload a few files, open a browser, fill one form.
 
 ## Requirements

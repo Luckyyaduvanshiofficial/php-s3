@@ -3,8 +3,6 @@ title: Architecture
 description: System design — request pipeline, storage layout, auth, and phasing.
 ---
 
-# Phase 2 — Architecture
-
 This document specifies the unified design for **php-s3**: an open-source, self-hostable,
 S3-compatible object storage server written in PHP, designed **for shared hosting first**.
 
@@ -22,7 +20,7 @@ Shared Hosting → Reliability → Security → S3 Compatibility → Simplicity 
 
 | Criterion | **A. Plain PHP, lightweight layered architecture** | **B. Laravel** | **C. Micro-framework (Slim/Symfony)** |
 |---|---|---|---|
-| Shared-hosting compatibility | ✅ Runs anywhere PHP runs; upload files, done | ⚠️ Works, but needs `vendor/` (~100+ packages), `.env`, cache warmup | ⚠️ Needs `vendor/` (~30–60 packages) |
+| Shared-hosting compatibility | <span class="mark mark--yes">yes</span> Runs anywhere PHP runs; upload files, done | <span class="mark mark--partial">partial</span> Works, but needs `vendor/` (~100+ packages), `.env`, cache warmup | <span class="mark mark--partial">partial</span> Needs `vendor/` (~30–60 packages) |
 | RAM per request | ~3–6 MB | ~15–40 MB (container, facades, Eloquent, middleware) | ~8–15 MB |
 | Performance on the hot path | Full control of streaming; zero framework overhead per request | Response lifecycle and middleware add overhead; streaming large bodies requires fighting the framework | PSR-7 streams are usable, but every request pays the container/middleware cost |
 | Deployment complexity | Upload + visit installer | Composer on server or bundled `vendor/`; `storage:link`; `.env`; `php artisan config:cache` | Bundle `vendor/`; front-controller tweak |

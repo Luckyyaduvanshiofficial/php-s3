@@ -3,8 +3,6 @@ title: S3 Compatibility
 description: Operation-by-operation S3 API support matrix with test evidence.
 ---
 
-# S3 Compatibility Matrix
-
 A feature is "supported" only when a test proves it through a real client
 (opsfour's support-matrix pattern). Evidence is one of:
 
@@ -24,23 +22,23 @@ podman exec -w "$PWD" lerd-php85-fpm sh tmp/smoke.sh   # expect: SMOKE OK
 
 | Area | Operation | Status | Evidence |
 |---|---|---|---|
-| Auth | SigV4 header mode | ✅ | smoke (all requests), `CanonicalRequestTest`, `AuthenticatorTest` |
-| Auth | SigV4 presigned (query) | ✅ | smoke (GET/PUT, expiry), `AuthenticatorTest` (incl. unsorted-query wire fix) |
-| Auth | aws-chunked streaming (signed chain) | ✅ | smoke 8b raw-wire PUT round-trip + tamper → 403, `ChunkedDecoderTest` |
-| Auth | aws-chunked unsigned-trailer framing | ✅ | `ChunkedDecoderTest` |
-| Auth | Streaming sentinel / decoded-length validation | ✅ | `AuthenticatorTest`, `ObjectHandler` guard |
-| Service | `ListBuckets`, `GET /_health` | ✅ | smoke 1 |
-| Buckets | `CreateBucket`, `DeleteBucket` (empty only), `HeadBucket` | ✅ | smoke 8 (`createBucket`/`deleteBucket`) |
-| Objects | `PutObject` (metadata, Content-Type, streaming body) | ✅ | smoke 8, smoke 8b |
-| Objects | `GetObject` (+ Range/206), `HeadObject`, `DeleteObject` | ✅ | smoke 8 |
-| Objects | `CopyObject` | ⏳ pending | routed (`OperationResolverTest`), no e2e proof yet |
-| Listing | `ListObjectsV1` + `ListObjectsV2` (prefix/delimiter/token) | ✅ | smoke 8 (`listObjectsV2`) |
-| Batch | `DeleteObjects` (≤1000, Quiet, idempotent) | ✅ | smoke 8, `XmlParserTest` |
-| Multipart | `CreateMultipartUpload`, `UploadPart` | ✅ | smoke 8 (`MultipartUploader`) |
-| Multipart | `CompleteMultipartUpload` (composite ETag `…-N`) | ✅ | smoke 8, `MultipartStorageTest` |
-| Multipart | `ListParts`, `ListMultipartUploads`, `AbortMultipartUpload` | ✅ | smoke 8 |
-| Multipart | Errors: `InvalidPart`, `EntityTooSmall`, `NoSuchUpload`, `InvalidPartOrder` | ✅ | smoke 8, `MultipartStorageTest` |
-| Multipart | `ListParts`/parts storage, part validation (1..10000, ≤5 GiB) | ✅ | `MultipartRepositoryTest`, `MultipartStorageTest` |
+| Auth | SigV4 header mode | <span class="mark mark--yes">yes</span> | smoke (all requests), `CanonicalRequestTest`, `AuthenticatorTest` |
+| Auth | SigV4 presigned (query) | <span class="mark mark--yes">yes</span> | smoke (GET/PUT, expiry), `AuthenticatorTest` (incl. unsorted-query wire fix) |
+| Auth | aws-chunked streaming (signed chain) | <span class="mark mark--yes">yes</span> | smoke 8b raw-wire PUT round-trip + tamper → 403, `ChunkedDecoderTest` |
+| Auth | aws-chunked unsigned-trailer framing | <span class="mark mark--yes">yes</span> | `ChunkedDecoderTest` |
+| Auth | Streaming sentinel / decoded-length validation | <span class="mark mark--yes">yes</span> | `AuthenticatorTest`, `ObjectHandler` guard |
+| Service | `ListBuckets`, `GET /_health` | <span class="mark mark--yes">yes</span> | smoke 1 |
+| Buckets | `CreateBucket`, `DeleteBucket` (empty only), `HeadBucket` | <span class="mark mark--yes">yes</span> | smoke 8 (`createBucket`/`deleteBucket`) |
+| Objects | `PutObject` (metadata, Content-Type, streaming body) | <span class="mark mark--yes">yes</span> | smoke 8, smoke 8b |
+| Objects | `GetObject` (+ Range/206), `HeadObject`, `DeleteObject` | <span class="mark mark--yes">yes</span> | smoke 8 |
+| Objects | `CopyObject` | <span class="mark mark--partial">pending</span> | routed (`OperationResolverTest`), no e2e proof yet |
+| Listing | `ListObjectsV1` + `ListObjectsV2` (prefix/delimiter/token) | <span class="mark mark--yes">yes</span> | smoke 8 (`listObjectsV2`) |
+| Batch | `DeleteObjects` (≤1000, Quiet, idempotent) | <span class="mark mark--yes">yes</span> | smoke 8, `XmlParserTest` |
+| Multipart | `CreateMultipartUpload`, `UploadPart` | <span class="mark mark--yes">yes</span> | smoke 8 (`MultipartUploader`) |
+| Multipart | `CompleteMultipartUpload` (composite ETag `…-N`) | <span class="mark mark--yes">yes</span> | smoke 8, `MultipartStorageTest` |
+| Multipart | `ListParts`, `ListMultipartUploads`, `AbortMultipartUpload` | <span class="mark mark--yes">yes</span> | smoke 8 |
+| Multipart | Errors: `InvalidPart`, `EntityTooSmall`, `NoSuchUpload`, `InvalidPartOrder` | <span class="mark mark--yes">yes</span> | smoke 8, `MultipartStorageTest` |
+| Multipart | `ListParts`/parts storage, part validation (1..10000, ≤5 GiB) | <span class="mark mark--yes">yes</span> | `MultipartRepositoryTest`, `MultipartStorageTest` |
 
 ## Known deviations
 
