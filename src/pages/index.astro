@@ -1,0 +1,1241 @@
+---
+import '../styles/custom.css';
+
+const repo = 'https://github.com/Luckyyaduvanshiofficial/php-s3';
+const demo = 'https://demo.php-s3.codaipro.com';
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>php-s3 · S3 object storage on the hosting you already pay for</title>
+		<meta
+			name="description"
+			content="Self-hosted, S3-compatible object storage in plain PHP. SigV4 auth, multipart uploads, presigned URLs and streaming, deployed like WordPress on the shared hosting you already have."
+		/>
+		<link rel="canonical" href="https://php-s3.codaipro.com/" />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content="https://php-s3.codaipro.com/" />
+		<meta property="og:title" content="php-s3 · S3 object storage on the hosting you already pay for" />
+		<meta
+			property="og:description"
+			content="Plain PHP 8.1+. No daemons, no Docker, no root, no runtime dependencies. Upload it, run the installer, point any S3 client at it."
+		/>
+		<meta name="color-scheme" content="dark light" />
+		<script is:inline>
+			(() => {
+				const stored = localStorage.getItem('starlight-theme');
+				const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+				document.documentElement.dataset.theme =
+					stored === 'light' || stored === 'dark' ? stored : prefersLight ? 'light' : 'dark';
+			})();
+		</script>
+	</head>
+	<body>
+		<a class="skip" href="#main">Skip to content</a>
+
+		<header class="top">
+			<div class="wrap top-inner">
+				<a class="brand" href="/">php-s3</a>
+				<nav class="nav" aria-label="Primary">
+					<a href="/docs/">Docs</a>
+					<a href="/changelog/">Changelog</a>
+					<a href={repo}>GitHub</a>
+				</nav>
+				<div class="top-actions">
+					<button id="theme-toggle" class="icon-btn" type="button" aria-label="Switch to light theme">
+						<svg class="sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+							<circle cx="12" cy="12" r="4.2"></circle>
+							<path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.2 5.2l1.7 1.7M17.1 17.1l1.7 1.7M18.8 5.2l-1.7 1.7M6.9 17.1l-1.7 1.7"></path>
+						</svg>
+						<svg class="moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z"></path>
+						</svg>
+					</button>
+					<a class="btn btn--primary" href="/docs/install/">Install guide</a>
+				</div>
+			</div>
+		</header>
+
+		<main id="main">
+			<section class="hero">
+				<div class="wrap hero-grid">
+					<div class="hero-copy">
+						<p class="eyebrow">Self-hosted S3 server · plain PHP 8.1+ · zero runtime dependencies</p>
+						<h1>S3 object storage on <span class="hl">the hosting you already pay for.</span></h1>
+						<p class="lede">
+							php-s3 speaks the real S3 API: SigV4 auth, multipart uploads, presigned URLs, range
+							requests, and streaming in constant memory. Upload it, run the browser installer, point
+							any S3 client at it. No daemons, no Docker, no root, and no Composer on the server.
+						</p>
+						<div class="cta">
+							<a class="btn btn--primary" href="/docs/install/">Install guide</a>
+							<a class="btn btn--ghost" href="/docs/">Browse the docs</a>
+							<a class="btn btn--plain" href={demo}>Live demo</a>
+						</div>
+					</div>
+
+					<aside class="manifest" aria-label="Deployment manifest">
+						<div class="manifest-head">
+							<span>Deployment manifest</span>
+							<span>No. 001</span>
+						</div>
+						<dl class="manifest-rows">
+							<div><dt>Ships as</dt><dd>public/index.php + .htaccess</dd></div>
+							<div><dt>Needs</dt><dd>PHP 8.1+ · MySQL 5.7+ · any web server</dd></div>
+							<div><dt>Runtime deps</dt><dd>0</dd></div>
+							<div><dt>Install</dt><dd>browser wizard at /_admin/install</dd></div>
+							<div><dt>Auth</dt><dd>AWS SigV4, header + presigned</dd></div>
+							<div><dt>Access</dt><dd>every request signed, no anonymous mode</dd></div>
+							<div><dt>License</dt><dd>Apache-2.0, auditable source</dd></div>
+						</dl>
+						<p class="stamp">Tested with real clients<br /><span>aws-sdk-php · AWS CLI · boto3 · rclone</span></p>
+					</aside>
+				</div>
+
+				<div class="wrap">
+					<ul class="facts">
+						<li>PHP 8.1+</li>
+						<li>MySQL 5.7+ / MariaDB 10.3+</li>
+						<li>0 runtime dependencies</li>
+						<li>223 tests · 386 assertions</li>
+						<li>Apache · LiteSpeed · nginx · Caddy</li>
+					</ul>
+				</div>
+			</section>
+
+			<section class="section">
+				<div class="wrap">
+					<h2 class="section-title">What is in the box</h2>
+					<ol class="specs">
+						<li class="spec">
+							<span class="spec-no">01</span>
+							<div>
+								<h3>Signature verification with no bypass flags</h3>
+								<p>
+									Header mode, presigned query URLs from 1 second to 7 days, and aws-chunked streams
+									with a per-chunk signature chain. Every request is verified with constant-time
+									comparisons. There is no simple-auth mode to forget to turn off.
+								</p>
+							</div>
+						</li>
+						<li class="spec">
+							<span class="spec-no">02</span>
+							<div>
+								<h3>Streaming in constant memory</h3>
+								<p>
+									Uploads and downloads run as a 64 KiB loop while MD5 and SHA-256 are computed on the
+									way through. A multi-gigabyte object never sits in RAM, which matters when your PHP
+									memory limit is 256 MB.
+								</p>
+							</div>
+						</li>
+						<li class="spec">
+							<span class="spec-no">03</span>
+							<div>
+								<h3>Listings that stay fast</h3>
+								<p>
+									MySQL is the index. Objects live at sha256-sharded paths, so one directory never
+									holds millions of entries and pagination does not degrade into a full disk scan.
+								</p>
+							</div>
+						</li>
+						<li class="spec">
+							<span class="spec-no">04</span>
+							<div>
+								<h3>Storage that cannot be traversed</h3>
+								<p>
+									Object keys never touch the filesystem path. Paths are derived from a hash and a UUID,
+									the data root lives outside the web root, and containment is checked with realpath on
+									every read and delete.
+								</p>
+							</div>
+						</li>
+						<li class="spec">
+							<span class="spec-no">05</span>
+							<div>
+								<h3>A panel you can actually run</h3>
+								<p>
+									Browser installer, session login with throttling, access keys with per-bucket
+									scoping, usage statistics, and a CLI for migrations, garbage collection, doctor
+									checks, and key creation.
+								</p>
+							</div>
+						</li>
+					</ol>
+				</div>
+			</section>
+
+			<section class="section">
+				<div class="wrap">
+					<h2 class="section-title">The honest comparison</h2>
+					<p class="section-lede">
+						Summary of the four open-source PHP projects studied in full source before php-s3 existed.
+						Yes, partial, and no are read straight from that audit, not from marketing pages.
+					</p>
+					<div class="table-scroll" tabindex="0" role="region" aria-label="Comparison table">
+						<table class="cmp">
+							<caption class="sr-only">php-s3 compared with four reference PHP S3 projects</caption>
+							<thead>
+								<tr>
+									<th scope="col">Capability</th>
+									<th scope="col">php-s3</th>
+									<th scope="col">opsfour/s3-server</th>
+									<th scope="col">simple-php-s3-server</th>
+									<th scope="col">lite-s3</th>
+									<th scope="col">buckie-php</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<th scope="row">Real S3 XML API with SigV4</th>
+									<td class="self"><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--partial">partial</span></td>
+									<td><span class="mark mark--no">no</span></td>
+								</tr>
+								<tr>
+									<th scope="row">Signature verified on every request</th>
+									<td class="self"><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--partial">partial</span></td>
+									<td><span class="mark mark--no">no</span></td>
+									<td><span class="mark mark--no">no</span></td>
+								</tr>
+								<tr>
+									<th scope="row">Runs on shared hosting, no daemon or root</th>
+									<td class="self"><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--no">no</span></td>
+									<td><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--yes">yes</span></td>
+								</tr>
+								<tr>
+									<th scope="row">Streaming uploads and downloads</th>
+									<td class="self"><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--no">no</span></td>
+									<td><span class="mark mark--partial">partial</span></td>
+									<td><span class="mark mark--yes">yes</span></td>
+								</tr>
+								<tr>
+									<th scope="row">Database-indexed listings</th>
+									<td class="self"><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--no">no</span></td>
+									<td><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--no">no</span></td>
+								</tr>
+								<tr>
+									<th scope="row">Multipart with AWS-format ETags</th>
+									<td class="self"><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--partial">partial</span></td>
+									<td><span class="mark mark--no">no</span></td>
+								</tr>
+								<tr>
+									<th scope="row">Presigned URLs with expiry</th>
+									<td class="self"><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--partial">partial</span></td>
+									<td><span class="mark mark--partial">partial</span></td>
+									<td><span class="mark mark--no">no</span></td>
+								</tr>
+								<tr>
+									<th scope="row">aws-chunked with per-chunk signatures</th>
+									<td class="self"><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--no">no</span></td>
+									<td><span class="mark mark--no">no</span></td>
+									<td><span class="mark mark--no">no</span></td>
+								</tr>
+								<tr>
+									<th scope="row">Web installer and admin panel</th>
+									<td class="self"><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--no">no</span></td>
+									<td><span class="mark mark--no">no</span></td>
+									<td><span class="mark mark--yes">yes</span></td>
+									<td><span class="mark mark--no">no</span></td>
+								</tr>
+								<tr>
+									<th scope="row">Automated tests in repo</th>
+									<td class="self"><span class="mark mark--yes">223</span></td>
+									<td><span class="mark mark--neutral">745</span></td>
+									<td><span class="mark mark--no">none</span></td>
+									<td><span class="mark mark--no">none</span></td>
+									<td><span class="mark mark--neutral">56</span></td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+					<p class="footnote">
+						opsfour/s3-server is the best-in-class PHP S3 server and we openly credit it as the quality
+						bar. php-s3 targets the same correctness without PHP 8.4, fibers, or a long-running worker.
+						Full source audit in the <a href="/docs/research/">research notes</a>.
+					</p>
+				</div>
+			</section>
+
+			<section class="section">
+				<div class="wrap">
+					<h2 class="section-title">From upload to endpoint in three steps</h2>
+					<div class="steps">
+						<div class="step">
+							<span class="spec-no">01</span>
+							<h3>Upload the files</h3>
+							<p>Clone the repository or drop the release into your document root. No build step on the server.</p>
+							<pre class="term" tabindex="0"><code><span class="c"># extract the release, then</span>
+composer install --no-dev</code></pre>
+						</div>
+						<div class="step">
+							<span class="spec-no">02</span>
+							<h3>Run the installer</h3>
+							<p>One form: database credentials, your admin account, and the data directory outside the web root.</p>
+							<pre class="term" tabindex="0"><code><span class="c"># open on your domain</span>
+/_admin/install</code></pre>
+						</div>
+						<div class="step">
+							<span class="spec-no">03</span>
+							<h3>Point your client</h3>
+							<p>Create a bucket and an access key in the panel, then connect any S3 tool with path-style addressing. Replace DOMAIN with your endpoint.</p>
+							<pre class="term" tabindex="0"><code><span class="c"># real request, real signature</span>
+aws --endpoint-url https://DOMAIN s3 ls</code></pre>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<section class="section">
+				<div class="wrap">
+					<h2 class="section-title">API coverage</h2>
+					<div class="coverage">
+						<div class="cov-group">
+							<p class="glabel">Buckets</p>
+							<ul class="chips">
+								<li>ListBuckets</li><li>CreateBucket</li><li>HeadBucket</li><li>DeleteBucket</li>
+							</ul>
+						</div>
+						<div class="cov-group">
+							<p class="glabel">Objects</p>
+							<ul class="chips">
+								<li>PutObject</li><li>GetObject + Range</li><li>HeadObject</li><li>DeleteObject</li><li>CopyObject</li>
+							</ul>
+						</div>
+						<div class="cov-group">
+							<p class="glabel">Listing</p>
+							<ul class="chips">
+								<li>ListObjectsV1</li><li>ListObjectsV2</li><li>Prefix + delimiter</li><li>Continuation tokens</li>
+							</ul>
+						</div>
+						<div class="cov-group">
+							<p class="glabel">Batch</p>
+							<ul class="chips">
+								<li>DeleteObjects</li><li>1000 keys per call</li><li>Quiet mode</li>
+							</ul>
+						</div>
+						<div class="cov-group">
+							<p class="glabel">Multipart</p>
+							<ul class="chips">
+								<li>Create</li><li>UploadPart</li><li>Complete</li><li>Abort</li><li>ListParts</li><li>ListUploads</li>
+							</ul>
+						</div>
+						<div class="cov-group">
+							<p class="glabel">Auth and transport</p>
+							<ul class="chips">
+								<li>SigV4 header mode</li><li>Presigned URLs</li><li>aws-chunked signed chain</li><li>Unsigned trailers</li>
+							</ul>
+						</div>
+					</div>
+					<p class="footnote">
+						Not yet: versioning, ACLs and policies, checksum trailers, public access. Evidence for every
+						operation lives in the <a href="/docs/s3-compatibility/">compatibility matrix</a>.
+					</p>
+				</div>
+			</section>
+
+			<section class="section">
+				<div class="wrap">
+					<h2 class="section-title">What php-s3 is not</h2>
+					<div class="panel">
+						<dl class="panel-rows">
+							<div>
+								<dt>Backups</dt>
+								<dd>It is storage, not a backup service. The disk is yours, so the backup plan is yours.</dd>
+							</div>
+							<div>
+								<dt>Multi-tenancy</dt>
+								<dd>One owner, many scoped access keys. There are no client accounts and no sign-up.</dd>
+							</div>
+							<div>
+								<dt>Public access</dt>
+								<dd>Every request is signed. There is no anonymous mode and no public-read bucket flag.</dd>
+							</div>
+							<div>
+								<dt>Performance</dt>
+								<dd>As fast as your host's disk and PHP worker limit, and honest about both.</dd>
+							</div>
+							<div>
+								<dt>Finished</dt>
+								<dd>Versioning, ACLs, and checksum trailers are on the roadmap, not in a release note.</dd>
+							</div>
+						</dl>
+					</div>
+				</div>
+			</section>
+
+			<section class="section">
+				<div class="wrap">
+					<h2 class="section-title">Read the manual</h2>
+					<div class="docs-grid">
+						<a class="doclink" href="/docs/install/">
+							<span class="doclink-title">Installation</span>
+							<span class="doclink-desc">Deploy on any PHP host and finish the web wizard.</span>
+						</a>
+						<a class="doclink" href="/docs/hostinger/">
+							<span class="doclink-title">Hostinger guide</span>
+							<span class="doclink-desc">The exact hPanel walkthrough: subdomain, MySQL, SSL.</span>
+						</a>
+						<a class="doclink" href="/docs/usage/">
+							<span class="doclink-title">Usage and SDKs</span>
+							<span class="doclink-desc">AWS CLI, boto3, aws-sdk-php, and rclone recipes.</span>
+						</a>
+						<a class="doclink" href="/docs/architecture/">
+							<span class="doclink-title">Architecture</span>
+							<span class="doclink-desc">Request pipeline, storage layout, and the auth chain.</span>
+						</a>
+						<a class="doclink" href="/docs/s3-compatibility/">
+							<span class="doclink-title">S3 compatibility</span>
+							<span class="doclink-desc">Operation-by-operation matrix with test evidence.</span>
+						</a>
+						<a class="doclink" href="/changelog/">
+							<span class="doclink-title">Changelog</span>
+							<span class="doclink-desc">Every notable change, newest first.</span>
+						</a>
+					</div>
+				</div>
+			</section>
+		</main>
+
+		<footer class="foot">
+			<div class="wrap foot-inner">
+				<div class="foot-brand">
+					<span class="brand">php-s3</span>
+					<p>Self-hosted, S3-compatible object storage for shared hosting.</p>
+				</div>
+				<nav class="foot-links" aria-label="Footer">
+					<a href="/docs/">Docs</a>
+					<a href="/changelog/">Changelog</a>
+					<a href={repo}>GitHub</a>
+					<a href={demo}>Live demo</a>
+				</nav>
+			</div>
+			<div class="wrap foot-fine">
+				<p>Apache-2.0 · © 2026 Lucky Yaduvanshi (codAIpro)</p>
+				<p>Static files only. No trackers, no analytics.</p>
+			</div>
+		</footer>
+
+		<script is:inline>
+			(() => {
+				const button = document.getElementById('theme-toggle');
+				const sync = () => {
+					const dark = document.documentElement.dataset.theme !== 'light';
+					button.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+				};
+				button.addEventListener('click', () => {
+					const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+					document.documentElement.dataset.theme = next;
+					localStorage.setItem('starlight-theme', next);
+					sync();
+				});
+				sync();
+			})();
+		</script>
+	</body>
+</html>
+
+<style>
+	html {
+		background: var(--p-canvas);
+	}
+
+	body {
+		margin: 0;
+		background: var(--p-canvas);
+		color: var(--p-text);
+		font-family: var(--p-font-sans);
+		font-size: 1rem;
+		line-height: 1.6;
+	}
+
+	.wrap {
+		max-width: 74rem;
+		margin-inline: auto;
+		padding-inline: clamp(1.25rem, 4vw, 2.5rem);
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	.skip {
+		position: absolute;
+		inset-block-start: -100%;
+		inset-inline-start: 1rem;
+		z-index: 50;
+		background: var(--p-ink);
+		color: var(--p-on-ink);
+		padding: 0.6rem 0.9rem;
+		border-radius: var(--p-radius);
+	}
+
+	.skip:focus {
+		inset-block-start: 0.75rem;
+	}
+
+	/* top bar */
+
+	.top {
+		position: sticky;
+		inset-block-start: 0;
+		z-index: 10;
+		background: color-mix(in oklch, var(--p-canvas) 88%, transparent);
+		backdrop-filter: blur(8px);
+		border-bottom: 1px solid var(--p-rule);
+	}
+
+	.top-inner {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem 1.25rem;
+		flex-wrap: wrap;
+		min-height: 3.5rem;
+	}
+
+	.brand {
+		font-family: var(--p-font-mono);
+		font-size: 1.0625rem;
+		font-weight: 600;
+		letter-spacing: -0.02em;
+		color: var(--p-ink);
+		text-decoration: none;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.55rem;
+	}
+
+	.brand::before {
+		content: '';
+		inline-size: 0.68em;
+		block-size: 0.68em;
+		background: var(--p-stamp);
+		border-radius: 2px;
+	}
+
+	.nav {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		margin-inline-end: auto;
+	}
+
+	.nav a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 2.75rem;
+		padding-inline: 0.7rem;
+		color: var(--p-text);
+		text-decoration: none;
+		font-size: 0.9375rem;
+		border-radius: var(--p-radius);
+		transition: color 140ms ease-out, background-color 140ms ease-out;
+	}
+
+	.nav a:hover {
+		color: var(--p-ink);
+		background: var(--p-kraft);
+	}
+
+	.top-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.icon-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		inline-size: 2.75rem;
+		block-size: 2.75rem;
+		background: transparent;
+		border: 1px solid transparent;
+		border-radius: var(--p-radius);
+		color: var(--p-muted);
+		cursor: pointer;
+		transition: color 140ms ease-out, background-color 140ms ease-out;
+	}
+
+	.icon-btn:hover {
+		color: var(--p-ink);
+		background: var(--p-kraft);
+	}
+
+	#theme-toggle .sun {
+		display: block;
+	}
+
+	#theme-toggle .moon {
+		display: none;
+	}
+
+	:global([data-theme='dark']) #theme-toggle .sun {
+		display: none;
+	}
+
+	:global([data-theme='dark']) #theme-toggle .moon {
+		display: block;
+	}
+
+	/* buttons */
+
+	.btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		min-height: 2.75rem;
+		padding-inline: 1rem;
+		border: 1px solid transparent;
+		border-radius: var(--p-radius);
+		font-size: 0.9375rem;
+		font-weight: 560;
+		text-decoration: none;
+		transition: background-color 140ms ease-out, border-color 140ms ease-out, color 140ms ease-out;
+	}
+
+	.btn--primary {
+		background: var(--p-ink);
+		border-color: var(--p-ink);
+		color: var(--p-on-ink);
+	}
+
+	.btn--primary:hover {
+		background: var(--p-stamp);
+		border-color: var(--p-stamp);
+		color: var(--p-on-stamp);
+	}
+
+	.btn--ghost {
+		border-color: var(--p-rule-strong);
+		color: var(--p-ink);
+	}
+
+	.btn--ghost:hover {
+		background: var(--p-kraft);
+	}
+
+	.btn--plain {
+		color: var(--p-stamp-strong);
+		padding-inline: 0.5rem;
+		text-decoration: underline;
+		text-underline-offset: 0.2em;
+		text-decoration-thickness: 1px;
+		text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
+	}
+
+	.btn--plain:hover {
+		text-decoration-color: currentColor;
+	}
+
+	/* hero */
+
+	.hero {
+		position: relative;
+		padding-block: clamp(3rem, 7vw, 5.5rem) 0;
+		overflow: hidden;
+	}
+
+	.hero::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background-image: radial-gradient(circle, var(--p-rule) 1px, transparent 1px);
+		background-size: 24px 24px;
+		mask-image: linear-gradient(to bottom, black, transparent 88%);
+		opacity: 0.55;
+		pointer-events: none;
+	}
+
+	.hero-grid {
+		position: relative;
+		display: grid;
+		grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+		gap: clamp(2rem, 5vw, 4.5rem);
+		align-items: start;
+	}
+
+	.eyebrow,
+	.glabel {
+		font-family: var(--p-font-mono);
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--p-muted);
+	}
+
+	.eyebrow::before {
+		content: '';
+		display: inline-block;
+		inline-size: 0.6em;
+		block-size: 0.6em;
+		background: var(--p-stamp);
+		margin-inline-end: 0.6em;
+	}
+
+	h1 {
+		margin-block: 1rem 0;
+		font-size: clamp(2.35rem, 1.55rem + 3.4vw, 3.9rem);
+		font-weight: 640;
+		line-height: 1.04;
+		letter-spacing: -0.028em;
+		color: var(--p-ink);
+		text-wrap: balance;
+		max-width: 22ch;
+	}
+
+	.hl {
+		background-image: linear-gradient(transparent 60%, var(--p-stamp-soft) 60%);
+		box-decoration-break: clone;
+		-webkit-box-decoration-break: clone;
+	}
+
+	.lede {
+		margin-block: 1.35rem 0;
+		max-width: 56ch;
+		font-size: 1.0625rem;
+		line-height: 1.68;
+		color: var(--p-text);
+		text-wrap: pretty;
+	}
+
+	.cta {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.65rem;
+		margin-block-start: 1.75rem;
+	}
+
+	/* manifest card */
+
+	.manifest {
+		position: relative;
+		background: var(--p-surface);
+		border: 1px solid var(--p-rule-strong);
+		border-radius: var(--p-radius-lg);
+		padding: 1.35rem 1.35rem 4.75rem;
+	}
+
+	.manifest-head {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+		font-family: var(--p-font-mono);
+		font-size: 0.6875rem;
+		font-weight: 600;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--p-ink);
+		border-bottom: 2px solid var(--p-ink);
+		padding-block-end: 0.75rem;
+	}
+
+	.manifest-rows {
+		margin: 0;
+	}
+
+	.manifest-rows > div {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+		padding-block: 0.55rem;
+		border-bottom: 1px dotted var(--p-rule-strong);
+	}
+
+	.manifest-rows dt {
+		font-family: var(--p-font-mono);
+		font-size: 0.6875rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--p-muted);
+		padding-block-start: 0.15em;
+	}
+
+	.manifest-rows dd {
+		margin: 0;
+		text-align: end;
+		font-size: 0.875rem;
+		color: var(--p-text);
+	}
+
+	.stamp {
+		position: absolute;
+		inset-inline-end: 1.1rem;
+		inset-block-end: 1.1rem;
+		font-family: var(--p-font-mono);
+		font-size: 0.625rem;
+		font-weight: 600;
+		letter-spacing: 0.09em;
+		text-transform: uppercase;
+		text-align: center;
+		line-height: 1.5;
+		color: var(--p-stamp-strong);
+		border: 3px double currentColor;
+		border-radius: var(--p-radius);
+		padding: 0.3rem 0.6rem;
+		transform: rotate(-2.5deg);
+	}
+
+	.stamp span {
+		font-weight: 400;
+		letter-spacing: 0.02em;
+		text-transform: none;
+	}
+
+	/* fact strip */
+
+	.facts {
+		position: relative;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem 1.75rem;
+		list-style: none;
+		margin: clamp(2.5rem, 5vw, 3.5rem) 0 0;
+		padding: 0.9rem 0;
+		border-top: 1px solid var(--p-rule-strong);
+		border-bottom: 1px solid var(--p-rule);
+	}
+
+	.facts li {
+		font-family: var(--p-font-mono);
+		font-size: 0.75rem;
+		letter-spacing: 0.03em;
+		color: var(--p-muted);
+		font-variant-numeric: tabular-nums;
+	}
+
+	/* sections */
+
+	.section {
+		border-top: 1px solid var(--p-rule);
+		padding-block: clamp(3.25rem, 7vw, 5.5rem);
+	}
+
+	.section-title {
+		margin: 0 0 1.75rem;
+		font-size: clamp(1.5rem, 1.2rem + 1.3vw, 2.05rem);
+		font-weight: 620;
+		letter-spacing: -0.02em;
+		color: var(--p-ink);
+		text-wrap: balance;
+	}
+
+	.section-lede {
+		margin: -0.75rem 0 1.75rem;
+		max-width: 68ch;
+		color: var(--p-text);
+		text-wrap: pretty;
+	}
+
+	/* spec list */
+
+	.specs {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		counter-reset: spec;
+	}
+
+	.spec {
+		display: grid;
+		grid-template-columns: 3.5rem minmax(0, 1fr);
+		gap: 1.25rem;
+		padding-block: 1.5rem;
+		border-top: 1px solid var(--p-rule);
+	}
+
+	.spec:last-child {
+		border-bottom: 1px solid var(--p-rule);
+	}
+
+	.spec-no {
+		font-family: var(--p-font-mono);
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--p-stamp-strong);
+		padding-block-start: 0.2em;
+	}
+
+	.spec h3,
+	.step h3 {
+		margin: 0 0 0.4rem;
+		font-size: 1.125rem;
+		font-weight: 600;
+		letter-spacing: -0.01em;
+		color: var(--p-ink);
+	}
+
+	.spec p,
+	.step p {
+		margin: 0;
+		max-width: 72ch;
+		color: var(--p-text);
+		text-wrap: pretty;
+	}
+
+	/* comparison table */
+
+	.table-scroll {
+		overflow-x: auto;
+		border-radius: var(--p-radius);
+		scrollbar-width: thin;
+		scrollbar-color: var(--p-rule-strong) transparent;
+	}
+
+	.cmp {
+		width: 100%;
+		min-width: 46rem;
+		border-collapse: collapse;
+		font-size: 0.90625rem;
+		border: 1px solid var(--p-rule-strong);
+	}
+
+	.cmp th,
+	.cmp td {
+		padding: 0.6rem 0.75rem;
+		text-align: start;
+		vertical-align: top;
+	}
+
+	.cmp thead th {
+		font-family: var(--p-font-mono);
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--p-muted);
+		background: var(--p-sunken);
+		border-bottom: 1px solid var(--p-rule-strong);
+		white-space: nowrap;
+	}
+
+	.cmp tbody th {
+		font-weight: 500;
+		color: var(--p-text);
+	}
+
+	.cmp tbody tr + tr th,
+	.cmp tbody tr + tr td {
+		border-top: 1px solid var(--p-rule);
+	}
+
+	.cmp thead th:not(:first-child),
+	.cmp tbody td {
+		text-align: center;
+	}
+
+	.cmp .self {
+		background: color-mix(in oklch, var(--p-stamp) 7%, transparent);
+	}
+
+	.cmp tbody th {
+		font-weight: 480;
+	}
+
+	.footnote {
+		margin-block-start: 1.25rem;
+		font-size: 0.9375rem;
+		max-width: 72ch;
+		color: var(--p-muted);
+		text-wrap: pretty;
+	}
+
+	.footnote a {
+		color: var(--p-stamp-strong);
+		text-underline-offset: 0.18em;
+	}
+
+	/* steps */
+
+	.steps {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: clamp(1.5rem, 3vw, 2.5rem);
+	}
+
+	.step {
+		border-top: 2px solid var(--p-ink);
+		padding-block-start: 1.1rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+	}
+
+	.step .spec-no {
+		padding-block-start: 0;
+		margin-block-end: 0.2rem;
+	}
+
+	.term {
+		margin: 0.9rem 0 0;
+		background: var(--p-term-bg);
+		color: var(--p-term-fg);
+		border: 1px solid var(--p-rule);
+		border-radius: var(--p-radius);
+		padding: 0.9rem 1rem;
+		font-family: var(--p-font-mono);
+		font-size: 0.78125rem;
+		line-height: 1.75;
+		overflow-x: auto;
+		scrollbar-width: thin;
+		scrollbar-color: var(--p-rule-strong) transparent;
+	}
+
+	.term .c {
+		color: var(--p-term-dim);
+	}
+
+	/* coverage */
+
+	.coverage {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 1.5rem clamp(1.5rem, 4vw, 3.5rem);
+	}
+
+	.cov-group .glabel {
+		margin: 0 0 0.6rem;
+	}
+
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.45rem;
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.chips li {
+		font-family: var(--p-font-mono);
+		font-size: 0.75rem;
+		color: var(--p-text);
+		background: var(--p-surface);
+		border: 1px solid var(--p-rule-strong);
+		border-radius: var(--p-radius);
+		padding: 0.22rem 0.55rem;
+	}
+
+	/* honesty panel */
+
+	.panel {
+		background: var(--p-sunken);
+		border: 1px solid var(--p-rule-strong);
+		border-radius: var(--p-radius-lg);
+		padding: clamp(1.5rem, 4vw, 2.5rem);
+	}
+
+	.panel-rows {
+		margin: 0;
+	}
+
+	.panel-rows > div {
+		display: grid;
+		grid-template-columns: 11rem minmax(0, 1fr);
+		gap: 1rem;
+		padding-block: 0.9rem;
+	}
+
+	.panel-rows > div + div {
+		border-top: 1px solid var(--p-rule);
+	}
+
+	.panel-rows dt {
+		font-family: var(--p-font-mono);
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.07em;
+		text-transform: uppercase;
+		color: var(--p-muted);
+		padding-block-start: 0.2em;
+	}
+
+	.panel-rows dd {
+		margin: 0;
+		color: var(--p-text);
+		max-width: 60ch;
+		text-wrap: pretty;
+	}
+
+	/* docs links */
+
+	.docs-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0 clamp(1.5rem, 4vw, 3.5rem);
+	}
+
+	.doclink {
+		display: block;
+		padding-block: 1rem;
+		border-top: 1px solid var(--p-rule);
+		text-decoration: none;
+		color: inherit;
+	}
+
+	.doclink-title {
+		display: block;
+		font-weight: 560;
+		color: var(--p-ink);
+		transition: color 140ms ease-out;
+	}
+
+	.doclink-desc {
+		display: block;
+		margin-block-start: 0.2rem;
+		font-size: 0.90625rem;
+		color: var(--p-muted);
+	}
+
+	.doclink:hover .doclink-title {
+		color: var(--p-stamp-strong);
+	}
+
+	/* footer */
+
+	.foot {
+		border-top: 1px solid var(--p-rule-strong);
+		background: var(--p-sunken);
+		padding-block: 2.5rem 1.5rem;
+	}
+
+	.foot-inner {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		gap: 1.5rem;
+		align-items: start;
+	}
+
+	.foot-brand p {
+		margin: 0.5rem 0 0;
+		font-size: 0.90625rem;
+		color: var(--p-muted);
+		max-width: 34ch;
+	}
+
+	.foot-links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1.25rem;
+	}
+
+	.foot-links a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 2.75rem;
+		color: var(--p-text);
+		text-decoration: none;
+		font-size: 0.90625rem;
+	}
+
+	.foot-links a:hover {
+		color: var(--p-stamp-strong);
+	}
+
+	.foot-fine {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		gap: 0.5rem 1.5rem;
+		margin-block-start: 1.75rem;
+		padding-block-start: 1.25rem;
+		border-top: 1px solid var(--p-rule);
+	}
+
+	.foot-fine p {
+		margin: 0;
+		font-family: var(--p-font-mono);
+		font-size: 0.71875rem;
+		letter-spacing: 0.02em;
+		color: var(--p-faint);
+	}
+
+	/* responsive */
+
+	@media (max-width: 62rem) {
+		.hero-grid {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		h1 {
+			max-width: 24ch;
+		}
+
+		.steps,
+		.coverage,
+		.docs-grid {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.docs-grid {
+			gap: 0;
+		}
+	}
+
+	@media (max-width: 40rem) {
+		.nav {
+			order: 3;
+			margin-inline-end: 0;
+			inline-size: 100%;
+			border-top: 1px solid var(--p-rule);
+		}
+
+		.top-inner {
+			padding-block-end: 0.35rem;
+		}
+
+		.panel-rows > div {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 0.35rem;
+		}
+
+		.manifest-rows > div {
+			flex-direction: column;
+			gap: 0.15rem;
+		}
+
+		.manifest-rows dd {
+			text-align: start;
+		}
+
+		.manifest {
+			padding-block-end: 5rem;
+		}
+	}
+</style>
