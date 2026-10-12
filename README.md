@@ -126,10 +126,14 @@ composer install --no-dev        # or copy vendor/ from your dev machine
 ```
 
 1. Point your domain (or subdomain) document root at `public/`
-2. Visit `https://your-domain.example/_admin/install` and follow the wizard —
+2. Visit `https://your-domain.example/install` and follow the wizard —
    it writes `config.php` outside the `public/` docroot (never web-reachable) and runs migrations
 3. Log in, create an access key, create a bucket
 4. Point any S3 client at your domain — **path-style**, custom endpoint
+
+The admin **Files** page also lets you upload and delete files in a bucket and create
+one-hour download links you can share. For routine S3 client setup, open **Connect**
+to copy the endpoint, region, bucket, and credentials.
 
 ### Local development
 
@@ -138,7 +142,7 @@ git clone https://github.com/Luckyyaduvanshiofficial/php-s3.git
 cd php-s3
 composer install
 php -S 127.0.0.1:8099 -t public public/index.php
-# open http://127.0.0.1:8099/_admin/install
+# open http://127.0.0.1:8099/install
 ```
 
 ### Use it with the official AWS SDK for PHP

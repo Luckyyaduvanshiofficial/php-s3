@@ -82,14 +82,21 @@ final class Kernel
 
         /* ------------------------------------------------------ installer */
         if (!php_s3_installed()) {
-            if (str_starts_with($path, '/_admin/install')) {
+            if ($path === '/install' || $path === '/_admin/install') {
                 return $this->admin()->install($request);
             }
             if (str_starts_with($path, '/_admin')) {
-                return Response::redirect(302, '/_admin/install');
+                return Response::redirect(302, '/install');
             }
             // S3 traffic before installation: honest 503, not a HTML redirect.
-            throw new S3Exception('ServiceUnavailable', 'php-s3 is not installed yet. Open /_admin/install to finish setup.', 503);
+            if ($path === '/' && $request->method === 'GET') {
+                return Response::redirect(302, '/install');
+            }
+            throw new S3Exception('ServiceUnavailable', 'php-s3 is not installed yet. Open /install to finish setup.', 503);
+        }
+
+        if ($path === '/install' || $path === '/_admin/install') {
+            return Response::redirect(302, '/_admin/login');
         }
 
         /* --------------------------------------------------------- admin */

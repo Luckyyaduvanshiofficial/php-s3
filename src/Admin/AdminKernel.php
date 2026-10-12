@@ -23,6 +23,7 @@ namespace PhpS3\Admin;
 
 use PhpS3\Http\Request;
 use PhpS3\Http\Response;
+use PhpS3\Auth\PresignedUrl;
 use PhpS3\Meta\AccessKeyRepository;
 use PhpS3\Meta\BucketRepository;
 use PhpS3\Meta\Crypto;
@@ -31,6 +32,7 @@ use PhpS3\Meta\Migrations;
 use PhpS3\Meta\ObjectRepository;
 use PhpS3\Meta\UserRepository;
 use PhpS3\S3\BucketNameValidator;
+use PhpS3\S3\KeySanitizer;
 use PhpS3\S3\Exception\S3Exception;
 use PhpS3\Storage\StorageInterface;
 
@@ -61,7 +63,7 @@ final class AdminKernel
         if ($this->db === null || $this->users === null || $this->accessKeys === null
             || $this->buckets === null || $this->objects === null || $this->storage === null
         ) {
-            return Response::redirect(302, '/_admin/install');
+            return Response::redirect(302, '/install');
         }
 
         $this->startSession($request);
@@ -112,6 +114,21 @@ final class AdminKernel
                     $this->endpoint($request),
                     (string) (php_s3_config()['region'] ?? 'us-east-1'),
                 );
+            }
+
+            if ($path === '/_admin/files') {
+                if ($method === 'GET') {
+                    $bucketName = (string) ($request->query()['bucket'] ?? '');
+                    $bucketRow = $bucketName === '' ? null : $this->ownedBucket($bucketName, (int) $user['id']);
+                    $objects = $bucketRow === null
+                        ? []
+                        : $this->objects->list((int) $bucketRow['id'], '', '', 1000, null)['objects'];
+
+                    return Views::files($user, $this->buckets->allForOwner((int) $user['id']), $bucketName, $objects, $this->csrf());
+                }
+                if ($method === 'POST') {
+                    return $this->fileAction($request, $user);
+                }
             }
 
             if ($path === '/_admin/buckets' && $method === 'POST') {
@@ -362,6 +379,124 @@ final class AdminKernel
         }
 
         return Response::redirect(302, '/_admin');
+    }
+
+    private function fileAction(Request $request, array $user): Response
+    {
+        $this->requireCsrf($request);
+        $input = $this->parseForm($request);
+        $bucketName = trim((string) ($input['bucket'] ?? ''));
+        $bucket = $this->ownedBucket($bucketName, (int) $user['id']);
+        if ($bucket === null) {
+            $_SESSION['flash'] = 'Choose one of your buckets first.';
+            return Response::redirect(303, '/_admin/files');
+        }
+
+        try {
+            $action = (string) ($input['action'] ?? '');
+            $key = trim((string) ($input['key'] ?? ''));
+            if ($action === 'upload') {
+                $this->uploadFile($request, $bucket, $bucketName);
+                $_SESSION['flash'] = 'File uploaded.';
+            } elseif ($action === 'delete') {
+                KeySanitizer::validate($key);
+                $storagePath = $this->objects->take((int) $bucket['id'], $key);
+                if ($storagePath !== null) {
+                    $this->storage->delete($bucketName, $storagePath);
+                    $_SESSION['flash'] = 'File deleted.';
+                }
+            } elseif ($action === 'share') {
+                KeySanitizer::validate($key);
+                if ($this->objects->get((int) $bucket['id'], $key) === null) {
+                    throw new \RuntimeException('That file no longer exists.');
+                }
+                $credential = $this->shareCredential((int) $user['id'], $bucketName);
+                $url = PresignedUrl::get(
+                    $this->endpoint($request),
+                    (string) (php_s3_config()['region'] ?? 'us-east-1'),
+                    $bucketName,
+                    $key,
+                    $credential['access_key_id'],
+                    $credential['secret'],
+                    3600,
+                );
+                $_SESSION['flash'] = 'Share link (expires in 1 hour): ' . $url;
+            }
+        } catch (\Throwable $e) {
+            $_SESSION['flash'] = $e->getMessage();
+        }
+
+        return Response::redirect(303, '/_admin/files?bucket=' . rawurlencode($bucketName));
+    }
+
+    private function uploadFile(Request $request, array $bucket, string $bucketName): void
+    {
+        $file = $request->uploadedFile('file');
+        if ($file === null || $file['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
+            throw new \RuntimeException('Choose a file that uploaded successfully. Check your host upload limit.');
+        }
+        $key = basename(str_replace('\\', '/', $file['name']));
+        $key = KeySanitizer::canonicalize($key);
+        KeySanitizer::validate($key);
+        $max = (int) (php_s3_config()['max_object_bytes'] ?? 5 * 1024 * 1024 * 1024);
+        if ($file['size'] > $max) {
+            throw new \RuntimeException('File exceeds the configured upload limit of ' . $max . ' bytes.');
+        }
+        if (!$this->storage->hasRoomFor($file['size'])) {
+            throw new \RuntimeException('There is not enough free storage space for this upload.');
+        }
+
+        $stream = @fopen($file['tmp_name'], 'rb');
+        if ($stream === false) {
+            throw new \RuntimeException('Could not read the uploaded file.');
+        }
+        try {
+            $staged = $this->storage->stage($stream, $file['size'], $max);
+        } finally {
+            fclose($stream);
+        }
+
+        $previous = $this->objects->get((int) $bucket['id'], $key);
+        $storagePath = $this->storage->commit($bucketName, $key, $staged);
+        try {
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+            $contentType = $finfo->file($file['tmp_name']) ?: 'application/octet-stream';
+            $this->objects->put((int) $bucket['id'], $key, $storagePath, $staged->size, $staged->md5, $contentType, [], []);
+        } catch (\Throwable $e) {
+            $this->storage->delete($bucketName, $storagePath);
+            throw $e;
+        }
+        if ($previous !== null && $previous['storage_path'] !== $storagePath) {
+            $this->storage->delete($bucketName, (string) $previous['storage_path']);
+        }
+    }
+
+    private function ownedBucket(string $name, int $ownerId): ?array
+    {
+        $bucket = $this->buckets->findByName($name);
+        return $bucket !== null && (int) $bucket['owner_id'] === $ownerId ? $bucket : null;
+    }
+
+    /** @return array{access_key_id:string,secret:string} */
+    private function shareCredential(int $userId, string $bucket): array
+    {
+        foreach ($this->accessKeys->allForOwner($userId) as $key) {
+            if ((int) $key['enabled'] !== 1) {
+                continue;
+            }
+            $allowed = $key['allowed_buckets'];
+            if ($allowed !== null && !in_array($bucket, $allowed, true)) {
+                continue;
+            }
+            $credential = $this->accessKeys->find((string) $key['access_key_id']);
+            if ($credential !== null && $credential['enabled']) {
+                return [
+                    'access_key_id' => (string) $key['access_key_id'],
+                    'secret' => (string) $credential['secret'],
+                ];
+            }
+        }
+        throw new \RuntimeException('Create an enabled access key that can read this bucket before making a share link.');
     }
 
     /* -------------------------------------------------------- plumbing */

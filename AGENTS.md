@@ -93,7 +93,7 @@ src/S3/Kernel.php       operation resolution
 src/S3/Handlers/*       buckets, objects, multipart
 src/S3/Xml.php          XXE-safe parse/serialize (DOCTYPE/ENTITY rejected)
 src/Storage/*           sharded FS layout + MySQL index, 64 KiB streaming loops
-src/Admin/*             session auth, web installer (/_admin/install), dashboard, keys, Connect
+src/Admin/*             session auth, web installer (/install; /_admin/install alias), dashboard, keys, Connect
 src/Admin/Views.php     all HTML views (install form fields are the installer's contract)
 cli/php-s3.php          migrate | doctor | gc | key:create
 tests/Unit/*            PHPUnit suite (181 tests)
@@ -147,7 +147,7 @@ zip -r /tmp/opencode/php-s3.zip src cli
   same as real AWS). There is no public/anonymous access in v1.
 - Two more instances planned (`demo.`, `bucket.`) — one install per docroot, separate DBs.
 
-## Installer contract (web wizard `/_admin/install`)
+## Installer contract (web wizard `/install`; legacy `/_admin/install` still works)
 
 Fields: `data_root` (absolute, outside web root) · `db_dsn`
 (`mysql:host=127.0.0.1;dbname=...`) · `db_username` / `db_password` · `admin_username`

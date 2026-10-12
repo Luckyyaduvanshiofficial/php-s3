@@ -197,6 +197,10 @@ final class Request
         if ($this->parsedBody !== null) {
             return $this->parsedBody;
         }
+        if (str_starts_with(strtolower($this->header('content-type') ?? ''), 'multipart/form-data')) {
+            $out = array_filter($_POST, 'is_scalar');
+            return $this->parsedBody = array_map('strval', $out);
+        }
         $raw = stream_get_contents($this->bodyStream());
         if ($raw === false || $raw === '') {
             return $this->parsedBody = [];
@@ -205,6 +209,23 @@ final class Request
         $out = array_filter($out, 'is_scalar');
 
         return $this->parsedBody = array_map('strval', $out);
+    }
+
+    /** @return array{name:string,type:string,tmp_name:string,error:int,size:int}|null */
+    public function uploadedFile(string $name): ?array
+    {
+        $file = $_FILES[$name] ?? null;
+        if (!is_array($file) || is_array($file['name'] ?? null)) {
+            return null;
+        }
+
+        return [
+            'name' => (string) ($file['name'] ?? ''),
+            'type' => (string) ($file['type'] ?? ''),
+            'tmp_name' => (string) ($file['tmp_name'] ?? ''),
+            'error' => (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE),
+            'size' => (int) ($file['size'] ?? 0),
+        ];
     }
 
     public function contentLength(): ?int

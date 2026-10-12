@@ -42,7 +42,7 @@ foreach (array_slice($argv, 2) as $arg) {
 }
 
 if (!php_s3_installed() && $command !== 'help') {
-    fwrite(STDERR, "not installed: run /_admin/install first\n");
+    fwrite(STDERR, "not installed: open /install first\n");
     exit(1);
 }
 
