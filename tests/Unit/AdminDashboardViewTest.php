@@ -89,6 +89,8 @@ final class AdminDashboardViewTest extends TestCase
         );
 
         self::assertStringContainsString('name="action" value="create"', $response->body);
+        self::assertStringContainsString('3–63 lowercase letters, numbers, dots, or hyphens', $response->body);
+        self::assertStringContainsString('autocapitalize="none"', $response->body);
         self::assertStringContainsString('href="/_admin/files?bucket=admin-files">Open files', $response->body);
         self::assertStringNotContainsString('href="/_admin/files?bucket=private-user-files"', $response->body);
         self::assertStringContainsString('href="/_admin/files">Open file manager', $response->body);
