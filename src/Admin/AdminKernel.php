@@ -166,24 +166,24 @@ final class AdminKernel
         $input = $this->parseForm($request);
 
         $errors = [];
-        $dataRoot = trim((string) ($input['data_root'] ?? ''));
-        $dsn = trim((string) ($input['db_dsn'] ?? ''));
+        $dataRoot = self::defaultDataRoot();
+        $dbName = trim((string) ($input['db_name'] ?? ''));
         $dbUser = trim((string) ($input['db_username'] ?? ''));
         $dbPass = (string) ($input['db_password'] ?? '');
         $adminUser = trim((string) ($input['admin_username'] ?? ''));
         $adminPass = (string) ($input['admin_password'] ?? '');
-        $region = trim((string) ($input['region'] ?? 'us-east-1'));
-        $baseDomain = trim((string) ($input['base_domain'] ?? ''));
+        $dsn = 'mysql:host=127.0.0.1;dbname=' . $dbName . ';charset=utf8mb4';
 
-        if ($dataRoot === '' || (!str_starts_with($dataRoot, '/') && !preg_match('#^[A-Za-z]:[\\\\/]#', $dataRoot))) {
-            $errors[] = 'Data root must be an absolute path outside the web root.';
-        } elseif (str_starts_with($dataRoot, rtrim(self::webRootPrefix(), '/'))) {
-            $errors[] = self::isFlatLayout()
-                ? 'Data root must NOT be inside the document root (use a sibling directory).'
-                : 'Data root must NOT be inside the public/ directory.';
+        if (!preg_match('/^[a-zA-Z0-9_]{1,64}$/', $dbName)) {
+            $errors[] = 'Enter the full MySQL database name using letters, numbers, and underscores.';
         }
-        if (!preg_match('/^mysql:host=[^;]+;dbname=[a-zA-Z0-9_]+/', $dsn)) {
-            $errors[] = 'Database DSN must look like mysql:host=127.0.0.1;dbname=php_s3 (MySQL/MariaDB only).';
+        if (!preg_match('/^[a-zA-Z0-9_]{1,64}$/', $dbUser)) {
+            $errors[] = 'Enter the full MySQL username using letters, numbers, and underscores.';
+        }
+        if (!str_starts_with($dataRoot, '/') || str_starts_with($dataRoot, rtrim(self::webRootPrefix(), '/') . '/')) {
+            $errors[] = self::isFlatLayout()
+                ? 'The automatic data directory must be outside the document root.'
+                : 'The automatic data directory must be outside the public/ directory.';
         }
         if (strlen($adminPass) < 10) {
             $errors[] = 'Admin password must be at least 10 characters.';
@@ -212,7 +212,11 @@ final class AdminKernel
         }
 
         if ($errors !== []) {
-            return Views::install($this->environmentChecks($request), $errors);
+            return Views::install($this->environmentChecks($request), $errors, [
+                'db_name' => $dbName,
+                'db_username' => $dbUser,
+                'admin_username' => $adminUser,
+            ]);
         }
 
         try {
@@ -226,8 +230,8 @@ final class AdminKernel
 
             $config = [
                 'installed' => true,
-                'region' => $region,
-                'base_domain' => $baseDomain,
+                'region' => 'us-east-1',
+                'base_domain' => '',
                 'data_root' => rtrim($dataRoot, '/'),
                 'log_file' => rtrim($dataRoot, '/') . '/php-s3.log',
                 'secret_key' => Crypto::generateMasterKey(),
@@ -238,7 +242,11 @@ final class AdminKernel
             ];
             $this->writeConfig($config);
         } catch (\Throwable $e) {
-            return Views::install($this->environmentChecks($request), ['Installation failed: ' . $e->getMessage()]);
+            return Views::install($this->environmentChecks($request), ['Installation failed: ' . $e->getMessage()], [
+                'db_name' => $dbName,
+                'db_username' => $dbUser,
+                'admin_username' => $adminUser,
+            ]);
         }
 
         return Response::redirect(302, '/_admin/login');

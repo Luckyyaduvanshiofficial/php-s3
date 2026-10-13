@@ -126,8 +126,9 @@ composer install --no-dev        # or copy vendor/ from your dev machine
 ```
 
 1. Point your domain (or subdomain) document root at `public/`
-2. Visit `https://your-domain.example/install` and follow the wizard —
-   it writes `config.php` outside the `public/` docroot (never web-reachable) and runs migrations
+2. Visit `https://your-domain.example/install` and enter the MySQL database name,
+   username, password, then your admin username and password. The installer builds the
+   MySQL connection settings and chooses a private data directory automatically.
 3. Log in, create an access key, create a bucket
 4. Point any S3 client at your domain — **path-style**, custom endpoint
 

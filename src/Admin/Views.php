@@ -248,68 +248,49 @@ CSS;
     }
 
     /** @param array<string, array{ok: bool, detail: string}> $checks */
-    public static function install(array $checks, ?array $errors): Response
+    public static function install(array $checks, ?array $errors, array $values = []): Response
     {
         $csrf = self::sessionCsrf();
-        $root = dirname(__DIR__, 2);
-        $defaultDataRoot = is_file($root . '/index.php') ? dirname($root) . '/data' : $root . '/data';
-        $rows = '';
-        foreach ($checks as $name => $c) {
-            $rows .= '<tr><td class="mono">' . self::e($name) . '</td>'
-                . '<td><span class="status ' . ($c['ok'] ? 'on' : 'bad') . '">'
-                . ($c['ok'] ? 'OK' : 'FAIL') . '</span></td>'
-                . '<td class="muted">' . self::e($c['detail']) . '</td></tr>';
-        }
-
         $errorHtml = $errors ? '<div class="err"><ul><li>' .
             implode('</li><li>', array_map(self::e(...), $errors)) . '</li></ul></div>' : '';
+        $requirements = ['php', 'ext-pdo_mysql', 'ext-openssl', 'ext-fileinfo', 'ext-mbstring', 'data_root_writable'];
+        $failed = [];
+        foreach ($requirements as $name) {
+            if (isset($checks[$name]) && !$checks[$name]['ok']) {
+                $failed[] = self::e($checks[$name]['detail']);
+            }
+        }
+        $requirementsHtml = $failed === []
+            ? '<p class="hint">Server requirements look ready. Storage is created automatically outside the public folder.</p>'
+            : '<div class="notice-warn"><strong>Host setup needed:</strong> ' . implode(' · ', $failed) . '</div>';
 
         $html = self::layout('Install — php-s3', '
-        <div class="panel">
+        <div class="panel narrow">
             <p class="kicker">php-s3 · first run</p>
-            <h1>Install php-s3</h1>
-            ' . $errorHtml . '
-            <h2>Environment</h2>
-            <div class="table-scroll">
-            <table><tr><th>Check</th><th>Status</th><th>Detail</th></tr>' . $rows . '</table>
-            </div>
-
+            <h1>Set up your storage</h1>
+            <p class="muted">Enter your MySQL and admin login details. No DSN or server settings needed.</p>
+            ' . $errorHtml . $requirementsHtml . '
             <form method="post" action="/install">
                 <input type="hidden" name="_csrf" value="' . self::e($csrf) . '">
-
                 <fieldset>
-                    <legend>Storage</legend>
-                    <label for="f-data-root">Data root (absolute path, OUTSIDE the web root)</label>
-                    <input id="f-data-root" name="data_root" class="mono" value="' . self::e($defaultDataRoot) . '" required>
+                    <legend>MySQL database</legend>
+                    <label for="f-db-name">Database name</label>
+                    <input id="f-db-name" name="db_name" class="mono" value="' . self::e((string) ($values['db_name'] ?? '')) . '" autocomplete="off" required>
+                    <p class="hint">Paste the full name from Hostinger, including its account prefix.</p>
+                    <label for="f-db-user">Database username</label>
+                    <input id="f-db-user" name="db_username" class="mono" value="' . self::e((string) ($values['db_username'] ?? '')) . '" autocomplete="username" required>
+                    <label for="f-db-pass">Database password</label>
+                    <input id="f-db-pass" name="db_password" type="password" autocomplete="current-password" required>
                 </fieldset>
-
                 <fieldset>
-                    <legend>Database</legend>
-                    <label for="f-db-dsn">DSN (MySQL/MariaDB)</label>
-                    <input id="f-db-dsn" name="db_dsn" class="mono" placeholder="mysql:host=127.0.0.1;dbname=php_s3;charset=utf8mb4" required>
-                    <div class="inline">
-                        <div><label for="f-db-user">Username</label><input id="f-db-user" name="db_username" required></div>
-                        <div><label for="f-db-pass">Password</label><input id="f-db-pass" name="db_password" type="password"></div>
-                    </div>
+                    <legend>Admin login</legend>
+                    <label for="f-admin-user">Admin username</label>
+                    <input id="f-admin-user" name="admin_username" value="' . self::e((string) ($values['admin_username'] ?? '')) . '" autocomplete="username" required>
+                    <label for="f-admin-pass">Admin password</label>
+                    <input id="f-admin-pass" name="admin_password" type="password" minlength="10" autocomplete="new-password" required>
+                    <p class="hint">Use at least 10 characters.</p>
                 </fieldset>
-
-                <fieldset>
-                    <legend>Administrator</legend>
-                    <div class="inline">
-                        <div><label for="f-admin-user">Username</label><input id="f-admin-user" name="admin_username" required></div>
-                        <div><label for="f-admin-pass">Password (≥10 chars)</label><input id="f-admin-pass" name="admin_password" type="password" minlength="10" required></div>
-                    </div>
-                </fieldset>
-
-                <fieldset>
-                    <legend>Server</legend>
-                    <div class="inline">
-                        <div><label for="f-region">Region</label><input id="f-region" name="region" class="mono" value="us-east-1"></div>
-                        <div><label for="f-base-domain">Base domain (virtual-hosted style, optional)</label><input id="f-base-domain" name="base_domain" placeholder="s3.example.com"></div>
-                    </div>
-                </fieldset>
-
-                <button type="submit">Install</button>
+                <button type="submit">Install php-s3</button>
             </form>
         </div>');
 

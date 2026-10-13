@@ -149,12 +149,13 @@ zip -r /tmp/opencode/php-s3.zip src cli
 
 ## Installer contract (web wizard `/install`; legacy `/_admin/install` still works)
 
-Fields: `data_root` (absolute, outside web root) · `db_dsn`
-(`mysql:host=127.0.0.1;dbname=...`) · `db_username` / `db_password` · `admin_username`
-(3–64 `[a-zA-Z0-9_.-]`) · `admin_password` (**≥10 chars, no default exists**) · `region`
-(label, default us-east-1) · `base_domain` (optional, virtual-hosted style). On success:
-writes `config.php` outside docroot, runs migrations, creates admin, locks installer,
-redirects to `/_admin/login`. Login throttled 10/hour/IP. Access keys: description +
+Fields: `db_name` · `db_username` · `db_password` · `admin_username`
+(3–64 `[a-zA-Z0-9_.-]`) · `admin_password` (**≥10 chars, no default exists**). The
+installer builds `mysql:host=127.0.0.1;dbname=<db_name>;charset=utf8mb4`, stores files
+under an automatically selected data directory outside the document root, and uses
+`us-east-1` with path-style URLs by default. On success: writes `config.php` outside
+docroot, runs migrations, creates admin, locks installer, redirects to `/_admin/login`.
+Login throttled 10/hour/IP. Access keys: description +
 optional bucket allow-list (`*`/empty = all); secret shown once at creation and
 re-displayable anytime by the owner from the **Connect** page.
 
