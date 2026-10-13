@@ -62,6 +62,7 @@ final class AdminDashboardViewTest extends TestCase
         self::assertStringContainsString('200 GiB', $response->body);
         self::assertStringContainsString('href="/_admin/buckets#create-bucket">Create bucket', $response->body);
         self::assertStringContainsString('href="/_admin/files">Upload files', $response->body);
+        self::assertStringContainsString('href="/_admin/keys">Create access key', $response->body);
     }
 
     public function testAdminDashboardSurfacesConfiguredCapacityWarning(): void
@@ -108,5 +109,14 @@ final class AdminDashboardViewTest extends TestCase
         self::assertStringContainsString('Share link', $response->body);
         self::assertStringContainsString('Anyone with this link can download the file for one hour.', $response->body);
         self::assertStringContainsString('data-copy-url=', $response->body);
+    }
+
+    public function testAdminCanReachAndCreateAnAccessKey(): void
+    {
+        $response = Views::keys(['id' => 1, 'username' => 'root-admin', 'role' => 'admin'], [], 'csrf-token');
+
+        self::assertStringContainsString('href="/_admin/keys">Access keys', $response->body);
+        self::assertStringContainsString('<h2>Create API key</h2>', $response->body);
+        self::assertStringContainsString('<button type="submit">Create key</button>', $response->body);
     }
 }

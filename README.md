@@ -6,7 +6,7 @@
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-777BB4.svg)](https://php.net)
-[![Tests](https://img.shields.io/badge/tests-238%20passing-brightgreen.svg)](https://php-s3.codaipro.com/docs/usage)
+[![Tests](https://img.shields.io/badge/tests-239%20passing-brightgreen.svg)](https://php-s3.codaipro.com/docs/usage)
 [![S3 API](https://img.shields.io/badge/S3-compatible-API-orange.svg)](https://php-s3.codaipro.com/docs/s3-compatibility)
 [![Zero runtime deps](https://img.shields.io/badge/dependencies-zero-9cf.svg)](#features)
 
@@ -59,7 +59,7 @@ writing a line of code (audit: [project research](https://php-s3.codaipro.com/do
 | Multipart with AWS-format ETag | ✅ | ✅ | ✅ | ⚠️ | ❌ |
 | Presigned URLs (GET/PUT, expiry) | ✅ | ✅ | ⚠️ | ⚠️ | ❌ |
 | `aws-chunked` + per-chunk signatures | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Automated tests in the repo | ✅ 238 | ✅ 745 | ⚠️ | ❌ | ✅ 56 |
+| Automated tests in the repo | ✅ 239 | ✅ 745 | ⚠️ | ❌ | ✅ 56 |
 | Web installer + admin panel | ✅ | ❌ | ❌ | ✅ | ❌ |
 | Runtime dependencies | **0** | Amp + Symfony | 2 packages | 0 | 0 |
 

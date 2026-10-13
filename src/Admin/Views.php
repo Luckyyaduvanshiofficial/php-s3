@@ -387,7 +387,7 @@ CSS;
         <section class="page-head" aria-labelledby="overview-title">
             <div><p class="kicker">php-s3 administration</p><h1 id="overview-title">Admin dashboard</h1>
             <p class="muted">System-wide activity and capacity at a glance. Signed in as <strong>' . self::e((string) $user['username']) . '</strong>.</p></div>
-            <div class="page-actions"><a class="btn" href="/_admin/buckets#create-bucket">Create bucket</a><a class="btn secondary" href="/_admin/files">Upload files</a><a class="btn secondary" href="/_admin/users">Manage users</a><a class="btn secondary" href="/_admin/buckets#all-buckets">All buckets</a></div>
+            <div class="page-actions"><a class="btn" href="/_admin/buckets#create-bucket">Create bucket</a><a class="btn secondary" href="/_admin/files">Upload files</a><a class="btn secondary" href="/_admin/keys">Create access key</a><a class="btn secondary" href="/_admin/users">Manage users</a></div>
         </section>
         ' . $warning . '
         <section class="metric-grid" aria-label="Storage totals">
@@ -405,6 +405,7 @@ CSS;
                 <section class="panel"><h2>Admin shortcuts</h2><div class="action-list">
                     <a class="action-link" href="/_admin/users"><span>Create or manage users</span><span>Open →</span></a>
                     <a class="action-link" href="/_admin/files"><span>Browse files and create share links</span><span>Open →</span></a>
+                    <a class="action-link" href="/_admin/keys"><span>Create or manage access keys</span><span>Open →</span></a>
                     <a class="action-link" href="/_admin/storage"><span>Review storage and quotas</span><span>Open →</span></a>
                     <a class="action-link" href="/_admin/security"><span>Review credentials</span><span>Open →</span></a>
                     <a class="action-link" href="/_admin/audit"><span>Inspect audit logs</span><span>Open →</span></a>
@@ -877,7 +878,7 @@ CSS;
             if (($_SESSION['role'] ?? 'admin') === 'admin') {
                 $nav = '<a href="/_admin">Dashboard</a><a href="/_admin/users">Users</a>'
                     . '<a href="/_admin/buckets">All buckets</a><a href="/_admin/storage">Storage</a>'
-                    . '<a href="/_admin/files">Files</a><a href="/_admin/security">Security</a><a href="/_admin/audit">Audit logs</a>'
+                    . '<a href="/_admin/files">Files</a><a href="/_admin/keys">Access keys</a><a href="/_admin/security">Security</a><a href="/_admin/audit">Audit logs</a>'
                     . '<a href="/_admin/settings">Settings</a>';
             } else {
                 $home = '/_console';
