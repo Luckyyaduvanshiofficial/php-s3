@@ -60,9 +60,9 @@ html[data-theme="dark"] { color-scheme: dark; }
   --warn-soft: oklch(0.95 0.03 80);
   --danger: oklch(0.525 0.155 27);
   --danger-soft: oklch(0.945 0.028 30);
-  --rail: oklch(0.245 0.014 72);
-  --on-rail: oklch(0.955 0.007 85);
-  --on-rail-muted: oklch(0.72 0.012 78);
+  --rail: var(--surface);
+  --on-rail: var(--ink);
+  --on-rail-muted: var(--muted);
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --radius: 3px;
@@ -109,20 +109,20 @@ a:hover { color: var(--stamp); }
 
 /* rail (top band) ------------------------------------------------------ */
 .rail { background: var(--rail); color: var(--on-rail); border-bottom: 1px solid var(--rule-strong); }
-.rail-inner { max-width: 920px; margin: 0 auto; padding: 0 1.25rem; min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: .5rem 1rem; flex-wrap: wrap; }
+.rail-inner { max-width: 1280px; margin: 0 auto; padding: .55rem 1.5rem; display: grid; grid-template-columns: minmax(0, 1fr) max-content; align-items: center; gap: .35rem 1.25rem; }
 .brand { display: inline-flex; align-items: center; gap: .55rem; color: var(--on-rail); text-decoration: none; font: 700 .95rem var(--mono); letter-spacing: .02em; padding: .4rem 0; }
 .brand .mark { width: 9px; height: 9px; background: var(--stamp); flex: 0 0 auto; }
-.rail nav { display: flex; align-items: center; gap: .25rem 1.1rem; flex-wrap: wrap; }
-.rail nav a { color: var(--on-rail-muted); text-decoration: none; font: 500 .8rem var(--mono); letter-spacing: .05em; text-transform: uppercase; padding: .4rem .1rem; border-bottom: 1px solid transparent; }
-.rail nav a:hover { color: var(--on-rail); border-bottom-color: var(--stamp); }
-.rail .ghost { background: transparent; color: var(--on-rail-muted); border: 1px solid var(--on-rail-muted); border-radius: var(--radius); font: 500 .74rem var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: .35rem .6rem; cursor: pointer; }
-.rail .ghost:hover { color: var(--rail); background: var(--on-rail); border-color: var(--on-rail); }
+.rail nav { grid-column: 1 / -1; display: flex; justify-content: flex-start; align-items: center; gap: .25rem; flex-wrap: wrap; }
+.rail nav a { color: var(--on-rail-muted); text-decoration: none; font: 500 .86rem var(--sans); letter-spacing: 0; text-transform: none; padding: .55rem .62rem; border-radius: var(--radius); border-bottom: 2px solid transparent; }
+.rail nav a:hover { color: var(--ink); background: var(--sunken); border-bottom-color: var(--stamp); }
+.rail .ghost { background: transparent; color: var(--on-rail-muted); border: 1px solid var(--rule-strong); border-radius: var(--radius); font: 600 .8rem var(--sans); letter-spacing: 0; text-transform: none; padding: .48rem .7rem; cursor: pointer; }
+.rail .ghost:hover { color: var(--ink); background: var(--sunken); border-color: var(--rule-strong); }
 .appearance-control { display: inline-flex; align-items: center; gap: .4rem; margin: 0; color: var(--on-rail-muted); font: 500 .74rem var(--mono); text-transform: none; letter-spacing: 0; }
-.appearance-control select { width: auto; min-width: 6.5rem; margin: 0; padding: .32rem .45rem; border-color: var(--on-rail-muted); background: var(--rail); color: var(--on-rail); font: inherit; }
+.appearance-control select { width: auto; min-width: 6.5rem; margin: 0; padding: .38rem .5rem; border-color: var(--rule-strong); background: var(--surface); color: var(--ink); font: inherit; }
 .appearance-control select:focus { border-color: var(--stamp); box-shadow: 0 0 0 2px var(--stamp-soft); }
 
 /* layout --------------------------------------------------------------- */
-main { max-width: 920px; margin: 2.25rem auto 4rem; padding: 0 1.25rem; }
+main { max-width: 1160px; margin: 2.5rem auto 4rem; padding: 0 1.5rem; }
 main:focus { outline: none; }
 h1 { font-size: 1.22rem; font-weight: 650; color: var(--ink); margin: 0 0 .4rem; letter-spacing: -0.01em; }
 h2 { font: 600 .72rem var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--faint); margin: 0 0 .9rem; }
@@ -130,6 +130,32 @@ h2 { font: 600 .72rem var(--mono); text-transform: uppercase; letter-spacing: .1
 .hint { font-size: .82rem; color: var(--muted); margin: .55rem 0 0; }
 .muted { color: var(--muted); font-size: .86rem; }
 .mono { font-family: var(--mono); }
+
+/* dashboard ------------------------------------------------------------ */
+.page-head { display: flex; align-items: end; justify-content: space-between; gap: 1.25rem; margin-bottom: 1.6rem; }
+.page-head h1 { font-size: clamp(1.65rem, 2.5vw, 2.15rem); letter-spacing: -.035em; }
+.page-head .muted { margin: .4rem 0 0; }
+.page-actions { display: flex; gap: .55rem; flex-wrap: wrap; }
+.metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .9rem; margin-bottom: 1.25rem; }
+.metric-card { min-height: 132px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 1.1rem 1.2rem; }
+.metric-label { display: block; color: var(--muted); font-size: .84rem; }
+.metric-value { display: block; margin-top: .65rem; color: var(--ink); font: 600 clamp(1.5rem, 2.5vw, 2rem)/1.1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
+.metric-note { display: block; margin-top: .45rem; color: var(--faint); font-size: .78rem; }
+.overview-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(270px, .85fr); gap: 1rem; align-items: start; }
+.overview-grid .panel { margin-bottom: 1rem; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; margin-bottom: .85rem; }
+.section-head h2 { margin: 0; }
+.section-head a { font-size: .84rem; white-space: nowrap; }
+.action-list { display: grid; gap: .55rem; }
+.action-link { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem .8rem; border: 1px solid var(--rule); border-radius: var(--radius); color: var(--ink); text-decoration: none; }
+.action-link:hover { border-color: var(--rule-strong); background: var(--sunken); }
+.action-link span:last-child { color: var(--stamp-strong); font-size: .82rem; }
+.system-list { display: grid; gap: .65rem; margin: 0; }
+.system-list > div { display: flex; justify-content: space-between; gap: 1rem; padding-bottom: .55rem; border-bottom: 1px solid var(--rule); }
+.system-list > div:last-child { border-bottom: 0; padding-bottom: 0; }
+.system-list dt { color: var(--muted); font-size: .84rem; }
+.system-list dd { margin: 0; color: var(--ink); font: 500 .82rem var(--mono); text-align: right; }
+.status-banner { margin-bottom: 1.15rem; }
 
 /* panels --------------------------------------------------------------- */
 .panel { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 1.15rem 1.25rem; margin-bottom: 1.6rem; }
@@ -213,8 +239,23 @@ pre { font-family: var(--mono); font-size: .82rem; line-height: 1.65; background
 .spec dd { margin: 0; font: 500 .82rem var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 
 /* responsive ---------------------------------------------------------------- */
+@media (max-width: 960px) {
+  .rail-inner { gap: .4rem .8rem; }
+  .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 640px) {
-  main { margin-top: 1.5rem; }
+  .rail-inner { padding: .7rem 1rem; }
+  .rail nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .rail nav a { padding: .55rem .5rem; }
+  .rail nav form { grid-column: 1 / -1; }
+  .rail nav form .ghost { width: 100%; }
+  main { margin-top: 1.5rem; padding: 0 1rem; }
+  .page-head { align-items: flex-start; flex-direction: column; }
+  .page-actions { width: 100%; }
+  .metric-grid { gap: .6rem; }
+  .metric-card { min-height: 112px; padding: .9rem; }
+  .metric-value { font-size: 1.4rem; }
+  .overview-grid { grid-template-columns: minmax(0, 1fr); }
   .panel { padding: 1rem; }
   .command-form { flex-direction: column; align-items: stretch; }
   .command-form .btn { width: 100%; }
@@ -315,62 +356,64 @@ CSS;
 
     /**
      * @param array{id: int, username: string} $user
-     * @param list<array<string, mixed>> $usage
+     * @param list<array<string, mixed>> $buckets
      * @param array<string, mixed> $info
      */
-    public static function dashboard(array $user, array $usage, array $info): Response
+    public static function dashboard(array $user, array $buckets, array $info): Response
     {
-        $csrf = self::sessionCsrf();
         $flash = $_SESSION['flash'] ?? null;
         unset($_SESSION['flash']);
 
         $rows = '';
-        foreach ($usage as $u) {
-            $rows .= '<tr><td class="mono">' . self::e((string) $u['name']) . '</td>'
-                . '<td class="num">' . (int) $u['objects'] . '</td>'
-                . '<td class="num">' . self::humanBytes((int) $u['bytes']) . '</td>'
-                . '<td class="actions"><form method="post" action="/_admin/buckets">'
-                . '<input type="hidden" name="_csrf" value="' . self::e($csrf) . '">'
-                . '<input type="hidden" name="action" value="delete">'
-                . '<input type="hidden" name="name" value="' . self::e((string) $u['name']) . '">'
-                . '<button class="danger small" onclick="return confirm(\'Delete empty bucket?\')">Delete</button>'
-                . '</form></td></tr>';
+        foreach (array_slice($buckets, 0, 8) as $bucket) {
+            $rows .= '<tr><td class="mono">' . self::e((string) $bucket['name']) . '</td>'
+                . '<td>' . self::e((string) ($bucket['username'] ?? 'Unknown')) . '</td>'
+                . '<td class="num">' . (int) $bucket['objects'] . '</td>'
+                . '<td class="num">' . self::humanBytes((int) $bucket['bytes']) . '</td></tr>';
         }
         if ($rows === '') {
-            $rows = '<tr><td colspan="4" class="empty">No buckets yet — create the first one above.</td></tr>';
+            $rows = '<tr><td colspan="4" class="empty">No buckets have been created yet.</td></tr>';
         }
 
-        $specRows = '';
-        foreach ($info as $k => $v) {
-            $specRows .= '<div><dt>' . self::e((string) $k) . '</dt><dd>' . self::e((string) $v) . '</dd></div>';
-        }
+        $capacityWarning = (string) ($info['capacity_warning'] ?? '');
+        $warning = $capacityWarning !== '' && $capacityWarning !== 'No low-capacity warning.'
+            ? '<div class="notice-warn status-banner" role="status"><strong>Storage capacity warning</strong><br>' . self::e($capacityWarning) . '</div>'
+            : '';
+        $securityEvents = (string) ($info['security_events_last_24h'] ?? '0');
+        $capacity = (string) ($info['configured_hosting_capacity'] ?? 'Not configured');
 
         $html = self::layout('Dashboard — php-s3', '
         ' . ($flash ? '<div class="flash">' . self::e((string) $flash) . '</div>' : '') . '
-        <div class="panel command">
-            <div class="command-head">
-                <h2>Create bucket</h2>
-                <p class="hint">3–63 chars · lowercase, digits, dots, hyphens · starts and ends alphanumeric</p>
-            </div>
-            <form method="post" action="/_admin/buckets" class="command-form">
-                <input type="hidden" name="_csrf" value="' . self::e($csrf) . '">
-                <input type="hidden" name="action" value="create">
-                <input name="name" class="mono" placeholder="my-bucket-name" pattern="[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]" required aria-label="Bucket name">
-                <button type="submit" class="btn">Create bucket</button>
-            </form>
-        </div>
-        <div class="panel">
-            <h2>Buckets</h2>
-            <div class="table-scroll">
-            <table><tr><th>Name</th><th class="num">Objects</th><th class="num">Size</th><th></th></tr>' . $rows . '</table>
-            </div>
-        </div>
-        <div class="panel">
-            <h2>System</h2>
-            <dl class="spec">' . $specRows . '</dl>
-            <p class="muted">Signed in as <strong>' . self::e($user['username']) . '</strong> — '
-            . '<a href="/_admin/keys">Manage access keys</a> · '
-            . '<a href="/_admin/connect">Connection details</a></p>
+        <section class="page-head" aria-labelledby="overview-title">
+            <div><p class="kicker">php-s3 administration</p><h1 id="overview-title">Admin dashboard</h1>
+            <p class="muted">System-wide activity and capacity at a glance. Signed in as <strong>' . self::e((string) $user['username']) . '</strong>.</p></div>
+            <div class="page-actions"><a class="btn" href="/_admin/users">Manage users</a><a class="btn secondary" href="/_admin/buckets">All buckets</a></div>
+        </section>
+        ' . $warning . '
+        <section class="metric-grid" aria-label="Storage totals">
+            <article class="metric-card"><span class="metric-label">Users</span><strong class="metric-value">' . self::e((string) ($info['users'] ?? '0')) . '</strong><span class="metric-note">Registered accounts</span></article>
+            <article class="metric-card"><span class="metric-label">Buckets</span><strong class="metric-value">' . self::e((string) ($info['buckets'] ?? '0')) . '</strong><span class="metric-note">Across all users</span></article>
+            <article class="metric-card"><span class="metric-label">Objects</span><strong class="metric-value">' . self::e((string) ($info['objects'] ?? '0')) . '</strong><span class="metric-note">Stored files</span></article>
+            <article class="metric-card"><span class="metric-label">Storage used</span><strong class="metric-value">' . self::e((string) ($info['actual_storage_used'] ?? '0 B')) . '</strong><span class="metric-note">Configured capacity: ' . self::e($capacity) . '</span></article>
+        </section>
+        <div class="overview-grid">
+            <section class="panel">
+                <div class="section-head"><h2>Bucket overview</h2><a href="/_admin/buckets">View all buckets</a></div>
+                <div class="table-scroll"><table><thead><tr><th>Bucket</th><th>Owner</th><th class="num">Objects</th><th class="num">Storage</th></tr></thead><tbody>' . $rows . '</tbody></table></div>
+            </section>
+            <aside>
+                <section class="panel"><h2>Admin shortcuts</h2><div class="action-list">
+                    <a class="action-link" href="/_admin/users"><span>Create or manage users</span><span>Open →</span></a>
+                    <a class="action-link" href="/_admin/storage"><span>Review storage and quotas</span><span>Open →</span></a>
+                    <a class="action-link" href="/_admin/security"><span>Review credentials</span><span>Open →</span></a>
+                    <a class="action-link" href="/_admin/audit"><span>Inspect audit logs</span><span>Open →</span></a>
+                </div></section>
+                <section class="panel"><h2>System status</h2><dl class="system-list">
+                    <div><dt>PHP version</dt><dd>' . self::e((string) ($info['php'] ?? 'Unknown')) . '</dd></div>
+                    <div><dt>Security events, 24h</dt><dd>' . self::e($securityEvents) . '</dd></div>
+                    <div><dt>Allocated quotas</dt><dd>' . self::e((string) ($info['allocated_quotas'] ?? '0 B')) . '</dd></div>
+                </dl><p class="hint">Hosting capacity is an estimate you configure in <a href="/_admin/settings">system settings</a>.</p></section>
+            </aside>
         </div>');
 
         return Response::html(200, $html);

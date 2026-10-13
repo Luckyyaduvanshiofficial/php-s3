@@ -122,7 +122,7 @@ final class AdminKernel
             }
 
             if ($path === '/_admin' || $path === '/_admin/') {
-                return Views::dashboard($user, $this->buckets->usage($user['id']), $this->systemInfo());
+                return Views::dashboard($user, $this->buckets->allWithUsage(), $this->systemInfo());
             }
 
             if ($path === '/_admin/users') {

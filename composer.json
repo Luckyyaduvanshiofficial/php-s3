@@ -30,7 +30,9 @@
         }
     },
     "scripts": {
-        "test": "phpunit"
+        "test": "phpunit",
+        "test:all": "sh scripts/test-all.sh",
+        "test:e2e": "php scripts/s3-smoke.php"
     },
     "config": {
         "sort-packages": true
