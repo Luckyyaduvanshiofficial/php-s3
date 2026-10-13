@@ -144,6 +144,65 @@ SQL,
 
         // v3 — Phase 4: composite multipart ETags ("md5-of-md5s-N") exceed 32 chars.
         3 => 'ALTER TABLE objects MODIFY etag VARCHAR(64) NOT NULL;',
+
+        // v4 — multi-user foundation. Existing accounts were the only admin
+        // accounts in the original panel, so preserve their access explicitly.
+        4 => <<<'SQL'
+ALTER TABLE users ADD COLUMN email VARCHAR(254) NULL;
+ALTER TABLE users ADD COLUMN role VARCHAR(16) NOT NULL DEFAULT 'user';
+ALTER TABLE users ADD COLUMN status VARCHAR(16) NOT NULL DEFAULT 'active';
+ALTER TABLE users ADD COLUMN quota_bytes BIGINT UNSIGNED NULL;
+ALTER TABLE users ADD COLUMN session_version INT UNSIGNED NOT NULL DEFAULT 1;
+UPDATE users SET role = 'admin';
+ALTER TABLE access_keys ADD COLUMN permissions TEXT NULL;
+CREATE TABLE IF NOT EXISTS quota_reservations (
+  id              CHAR(32) NOT NULL,
+  owner_id        INT UNSIGNED NOT NULL,
+  purpose         VARCHAR(16) NOT NULL,
+  reference_key   VARCHAR(128) NOT NULL,
+  reserved_bytes  BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  expires_at      DATETIME NOT NULL,
+  created_at      DATETIME NOT NULL,
+  updated_at      DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_quota_reservation_ref (owner_id, purpose, reference_key),
+  KEY idx_quota_reservation_expiry (expires_at),
+  CONSTRAINT fk_quota_reservation_owner FOREIGN KEY (owner_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS user_sessions (
+  token_hash  CHAR(64) NOT NULL,
+  user_id     INT UNSIGNED NOT NULL,
+  created_at  DATETIME NOT NULL,
+  last_seen_at DATETIME NOT NULL,
+  ip_masked   VARCHAR(49) NULL,
+  ua_hash     CHAR(64) NULL,
+  revoked_at  DATETIME NULL,
+  PRIMARY KEY (token_hash),
+  KEY idx_user_sessions_user (user_id, revoked_at, last_seen_at),
+  CONSTRAINT fk_user_sessions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+SQL,
+
+        // v5 — administrator-configured capacity (disk_free_space is only an
+        // OS-level estimate and cannot represent a shared-hosting allocation).
+        5 => <<<'SQL'
+CREATE TABLE IF NOT EXISTS system_settings (
+  setting_key   VARCHAR(64) NOT NULL,
+  setting_value TEXT NOT NULL,
+  updated_at    DATETIME NOT NULL,
+  PRIMARY KEY (setting_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+SQL,
+
+        // v6 — link object upload reservations to the object being replaced so
+        // concurrent deletion can convert replacement growth into a full-size
+        // reservation before removing the old committed bytes.
+        6 => <<<'SQL'
+ALTER TABLE quota_reservations ADD COLUMN replacement_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0;
+ALTER TABLE quota_reservations ADD COLUMN object_bucket_id INT UNSIGNED NULL;
+ALTER TABLE quota_reservations ADD COLUMN object_key VARBINARY(1024) NULL;
+CREATE INDEX idx_quota_reservation_object ON quota_reservations (owner_id, purpose, object_bucket_id);
+SQL,
     ];
 
     public function __construct(private readonly Database $db)
@@ -153,10 +212,10 @@ SQL,
     public function currentVersion(): int
     {
         $row = $this->db->one(
-            "SELECT MAX(version) AS v FROM information_schema.tables
+            "SELECT table_name FROM information_schema.tables
              WHERE table_schema = DATABASE() AND table_name = 'schema_migrations'"
         );
-        if ($row === null || $row['v'] === null) {
+        if ($row === null) {
             return 0;
         }
 
@@ -177,7 +236,9 @@ SQL,
             }
             $this->db->transaction(function (Database $db) use ($version, $sql, &$applied): void {
                 foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
-                    $db->pdo()->exec($statement);
+                    if (!$this->statementAlreadyApplied($statement)) {
+                        $db->pdo()->exec($statement);
+                    }
                 }
                 $db->run(
                     'INSERT INTO schema_migrations (version, applied_at) VALUES (?, UTC_TIMESTAMP())',
@@ -189,5 +250,32 @@ SQL,
         }
 
         return $applied;
+    }
+
+    private function statementAlreadyApplied(string $statement): bool
+    {
+        if ($this->db->driverName() !== 'mysql') {
+            return false;
+        }
+        if (preg_match('/^ALTER TABLE\\s+([a-zA-Z0-9_]+)\\s+ADD COLUMN\\s+([a-zA-Z0-9_]+)/i', $statement, $m)) {
+            return $this->db->one(
+                'SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?',
+                [$m[1], $m[2]],
+            ) !== null;
+        }
+        if (preg_match('/^CREATE TABLE(?: IF NOT EXISTS)?\\s+([a-zA-Z0-9_]+)/i', $statement, $m)) {
+            return $this->db->one(
+                'SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?',
+                [$m[1]],
+            ) !== null;
+        }
+        if (preg_match('/^CREATE INDEX\\s+([a-zA-Z0-9_]+)\\s+ON\\s+([a-zA-Z0-9_]+)/i', $statement, $m)) {
+            return $this->db->one(
+                'SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?',
+                [$m[2], $m[1]],
+            ) !== null;
+        }
+
+        return false;
     }
 }

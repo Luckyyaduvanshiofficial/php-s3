@@ -26,6 +26,7 @@ use PhpS3\Http\Request;
 use PhpS3\Http\Response;
 use PhpS3\Meta\BucketRepository;
 use PhpS3\Meta\ObjectRepository;
+use PhpS3\Meta\QuotaRepository;
 use PhpS3\S3\Exception\S3Exception;
 use PhpS3\S3\ChunkedDecoder;
 use PhpS3\S3\KeySanitizer;
@@ -45,6 +46,7 @@ final class ObjectHandler
         private readonly StorageInterface $storage,
         private readonly ObjectResponder $responder,
         private readonly int $maxObjectBytes,
+        private readonly ?QuotaRepository $quota = null,
     ) {
     }
 
@@ -57,8 +59,8 @@ final class ObjectHandler
             S3Operation::ObjectCopy => $this->copy($request, $auth, $bucket, (int) $bucketRow['id'], (string) $key),
             S3Operation::ObjectGet => $this->get($request, $bucket, (int) $bucketRow['id'], (string) $key, false),
             S3Operation::ObjectHead => $this->get($request, $bucket, (int) $bucketRow['id'], (string) $key, true),
-            S3Operation::ObjectDelete => $this->delete($bucket, (int) $bucketRow['id'], (string) $key),
-            S3Operation::ObjectsDelete => $this->deleteObjects($request, $bucket, (int) $bucketRow['id']),
+            S3Operation::ObjectDelete => $this->delete($auth, $bucket, (int) $bucketRow['id'], (string) $key),
+            S3Operation::ObjectsDelete => $this->deleteObjects($request, $auth, $bucket, (int) $bucketRow['id']),
             default => throw S3Exception::methodNotAllowed(),
         };
     }
@@ -103,13 +105,58 @@ final class ObjectHandler
             throw S3Exception::internalError('insufficient storage space');
         }
 
+        $previous = $this->objects->get($bucketId, $key);
+        $replacementSize = (int) ($previous['size'] ?? 0);
+        $reservationId = bin2hex(random_bytes(16));
+        $reservedGrowth = 0;
+        if ($this->quota !== null) {
+            $reservedGrowth = $this->quota->reserve(
+                $auth->ownerId,
+                $reservationId,
+                'object',
+                $reservationId,
+                $declared ?? 0,
+                $replacementSize,
+                $declared === null,
+                $bucketId,
+                $key,
+            );
+        }
+
         [$body, $chunkState] = $streaming
             ? ChunkedDecoder::wrap($request->bodyStream(), $auth)
             : [$request->bodyStream(), null];
 
         // For streaming, byte-exact enforcement lives in ChunkedDecoder::assertValid
         // (signature errors must win over a short-read IncompleteBody).
-        $staged = $this->storage->stage($body, $chunkState !== null ? null : $declared, $this->maxObjectBytes);
+        try {
+            $progress = $this->quota !== null && $declared === null
+                ? function (int $size) use ($auth, $reservationId, $replacementSize, &$reservedGrowth): void {
+                    if (max(0, $size - $replacementSize) > $reservedGrowth) {
+                        $reservedGrowth = $this->quota->reserve(
+                            $auth->ownerId,
+                            $reservationId,
+                            'object',
+                            $reservationId,
+                            $size,
+                            $replacementSize,
+                            true,
+                            $bucketId,
+                            $key,
+                        );
+                    }
+                }
+                : null;
+            $staged = $this->storage->stage(
+                $body,
+                $chunkState !== null ? null : $declared,
+                $this->maxObjectBytes,
+                $progress,
+            );
+        } catch (\Throwable $e) {
+            $this->releaseObjectReservation($auth->ownerId, $reservationId);
+            throw $e;
+        }
         try {
             if ($chunkState !== null) {
                 ChunkedDecoder::assertValid($chunkState, $declared);
@@ -124,10 +171,10 @@ final class ObjectHandler
             $storagePath = $this->storage->commit($bucket, $key, $staged);
         } catch (\Throwable $e) {
             $this->storage->discard($staged);
+            $this->releaseObjectReservation($auth->ownerId, $reservationId);
             throw $e;
         }
 
-        $previous = $this->objects->get($bucketId, $key);
         try {
             $row = $this->objects->put(
                 $bucketId,
@@ -142,6 +189,7 @@ final class ObjectHandler
         } catch (\Throwable $e) {
             // DB write failed → remove the new blob so we don't orphan it.
             $this->storage->delete($bucket, $storagePath);
+            $this->releaseObjectReservation($auth->ownerId, $reservationId);
             throw S3Exception::internalError('metadata write failed');
         }
         if ($row !== [] && ($row['storage_path'] ?? '') !== $storagePath) {
@@ -153,6 +201,7 @@ final class ObjectHandler
         if ($previous !== null && ($previous['storage_path'] ?? '') !== $storagePath) {
             $this->storage->delete($bucket, (string) $previous['storage_path']);
         }
+        $this->releaseObjectReservation($auth->ownerId, $reservationId);
 
         return Response::make(200, '', [
             'ETag' => '"' . $staged->md5 . '"',
@@ -193,10 +242,33 @@ final class ObjectHandler
 
         $directive = strtoupper((string) ($request->header('x-amz-metadata-directive') ?? 'COPY'));
         $replacementMetadata = $directive === 'REPLACE' ? UserMetadata::extract($request) : null;
+        $previous = $this->objects->get($bucketId, $key);
+        $reservationId = bin2hex(random_bytes(16));
+        if ($this->quota !== null) {
+            $this->quota->reserve(
+                $auth->ownerId,
+                $reservationId,
+                'object',
+                $reservationId,
+                (int) $srcObject['size'],
+                (int) ($previous['size'] ?? 0),
+                false,
+                $bucketId,
+                $key,
+            );
+        }
 
-        $in = $this->storage->open($srcBucket, (string) $srcObject['storage_path']);
+        try {
+            $in = $this->storage->open($srcBucket, (string) $srcObject['storage_path']);
+        } catch (\Throwable $e) {
+            $this->releaseObjectReservation($auth->ownerId, $reservationId);
+            throw $e;
+        }
         try {
             $staged = $this->storage->stage($in, (int) $srcObject['size'], $this->maxObjectBytes);
+        } catch (\Throwable $e) {
+            $this->releaseObjectReservation($auth->ownerId, $reservationId);
+            throw $e;
         } finally {
             fclose($in);
         }
@@ -221,10 +293,10 @@ final class ObjectHandler
             $storagePath = $this->storage->commit($bucket, $key, $staged);
         } catch (\Throwable $e) {
             $this->storage->discard($staged);
+            $this->releaseObjectReservation($auth->ownerId, $reservationId);
             throw $e;
         }
 
-        $previous = $this->objects->get($bucketId, $key);
         try {
             $row = $this->objects->put(
                 $bucketId,
@@ -238,6 +310,7 @@ final class ObjectHandler
             );
         } catch (\Throwable) {
             $this->storage->delete($bucket, $storagePath);
+            $this->releaseObjectReservation($auth->ownerId, $reservationId);
             throw S3Exception::internalError('metadata write failed');
         }
         if ($row !== [] && ($row['storage_path'] ?? '') !== $storagePath) {
@@ -247,6 +320,7 @@ final class ObjectHandler
         if ($previous !== null && ($previous['storage_path'] ?? '') !== $storagePath) {
             $this->storage->delete($bucket, (string) $previous['storage_path']);
         }
+        $this->releaseObjectReservation($auth->ownerId, $reservationId);
 
         $body = Xml::copyObjectResult($staged->md5, gmdate('Y-m-d\TH:i:s.000\Z'));
 
@@ -267,9 +341,11 @@ final class ObjectHandler
 
     /* -------------------------------------------------------- DELETE */
 
-    private function delete(string $bucket, int $bucketId, string $key): Response
+    private function delete(AuthContext $auth, string $bucket, int $bucketId, string $key): Response
     {
-        $path = $this->objects->take($bucketId, $key);
+        $path = $this->quota === null
+            ? $this->objects->take($bucketId, $key)
+            : $this->quota->takeObject($auth->ownerId, $bucketId, $key, fn (): ?string => $this->objects->take($bucketId, $key));
         if ($path !== null) {
             $this->storage->delete($bucket, $path);
         }
@@ -281,7 +357,7 @@ final class ObjectHandler
     /* ---------------------------------------------------- DELETE OBJECTS */
 
     /** POST /{bucket}?delete — batch delete, up to 1000 keys per request. */
-    private function deleteObjects(Request $request, string $bucket, int $bucketId): Response
+    private function deleteObjects(Request $request, AuthContext $auth, string $bucket, int $bucketId): Response
     {
         $parsed = XmlParser::deleteRequest(XmlParser::readBody($request->bodyStream()));
 
@@ -293,7 +369,9 @@ final class ObjectHandler
         foreach ($parsed['objects'] as $key) {
             try {
                 KeySanitizer::validate($key);
-                $path = $this->objects->take($bucketId, $key);
+                $path = $this->quota === null
+                    ? $this->objects->take($bucketId, $key)
+                    : $this->quota->takeObject($auth->ownerId, $bucketId, $key, fn (): ?string => $this->objects->take($bucketId, $key));
                 if ($path !== null) {
                     $this->storage->delete($bucket, $path);
                 }
@@ -380,5 +458,16 @@ final class ObjectHandler
         }
 
         return 'application/octet-stream';
+    }
+
+    private function releaseObjectReservation(int $ownerId, string $reservationId): void
+    {
+        if ($this->quota !== null) {
+            try {
+                $this->quota->release($ownerId, 'object', $reservationId);
+            } catch (\Throwable) {
+                // Expiration is the recovery path if the database is unavailable here.
+            }
+        }
     }
 }

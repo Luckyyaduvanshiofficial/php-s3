@@ -30,6 +30,7 @@ use PhpS3\Meta\AccessKeyRepository;
 use PhpS3\Meta\Crypto;
 use PhpS3\Meta\Database;
 use PhpS3\Meta\Migrations;
+use PhpS3\Meta\QuotaRepository;
 
 $command = $argv[1] ?? 'help';
 $opts = [];
@@ -180,10 +181,12 @@ function runGc(array $opts): int
 
     // 3. Expired throttling buckets (delight-im token-bucket housekeeping).
     $purged = 0;
+    $reservations = 0;
     if (!empty($config['installed'])) {
         try {
             $db = Database::fromAppConfig();
             $purged = (new \PhpS3\Admin\Throttle($db))->purgeExpired();
+            $reservations = (new QuotaRepository($db))->releaseExpired();
         } catch (Throwable) {
             // table may not exist yet on pre-v2 schemas
         }
@@ -193,10 +196,11 @@ function runGc(array $opts): int
     fclose($lock);
 
     printf(
-        "gc: %d stale tmp file(s) removed, %d expired multipart upload(s), %d throttle bucket(s), %.1f MiB freed\n",
+        "gc: %d stale tmp file(s) removed, %d expired multipart upload(s), %d throttle bucket(s), %d quota reservation(s), %.1f MiB freed\n",
         $removed,
         $expired,
         $purged,
+        $reservations,
         $freed / 1048576,
     );
 

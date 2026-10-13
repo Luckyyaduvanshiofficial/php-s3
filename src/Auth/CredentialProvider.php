@@ -29,7 +29,7 @@ interface CredentialProvider
     /**
      * Return the decrypted secret and policy for an access key id, or null.
      *
-     * @return array{secret: string, owner_id: int, allowed_buckets: ?list<string>, enabled: bool}|null
+     * @return array{secret: string, owner_id: int, allowed_buckets: ?list<string>, permissions?: list<string>, enabled: bool}|null
      */
     public function find(string $accessKeyId): ?array;
 

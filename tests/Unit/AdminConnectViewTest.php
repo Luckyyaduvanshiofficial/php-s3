@@ -36,7 +36,7 @@ final class AdminConnectViewTest extends TestCase
         unset($_SESSION);
     }
 
-    public function testConnectionDetailsContainAllCopyableFields(): void
+    public function testConnectionDetailsNeverRedisplaySecrets(): void
     {
         $resp = Views::connect(
             ['id' => 1, 'username' => 'admin'],
@@ -59,7 +59,6 @@ final class AdminConnectViewTest extends TestCase
             'https://s3.example.com',
             'eu-west-1',
             'AKIATESTKEY0001',
-            'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY',
             'laptop-rclone',
             'photos',
             'backups',
@@ -67,17 +66,13 @@ final class AdminConnectViewTest extends TestCase
             'data-copy="f-region"',
             'data-copy="f-bucket"',
             'data-copy="f-akid"',
-            'data-copy="f-secret"',
             'f-keyselect',
         ] as $needle) {
             self::assertStringContainsString($needle, $resp->body);
         }
 
-        // one value per key in the SECRETS JS map (unescaped slashes, hex-quoted strings)
-        self::assertStringContainsString(
-            '{"AKIATESTKEY0001":"wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"}',
-            $resp->body,
-        );
+        self::assertStringNotContainsString('wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', $resp->body);
+        self::assertStringContainsString('never redisplays a secret', $resp->body);
     }
 
     public function testEmptyStateStillRendersEndpointAndRegion(): void
@@ -112,6 +107,7 @@ final class AdminConnectViewTest extends TestCase
         self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $resp->body);
         self::assertStringNotContainsString('<img src=x onerror=1>', $resp->body);
         self::assertStringNotContainsString('value="AKIA"EVIL"', $resp->body);
-        self::assertStringContainsString('&lt;b&gt;s&lt;/b&gt;', $resp->body);
+        self::assertStringNotContainsString('<b>s</b>', $resp->body);
+        self::assertStringNotContainsString('&lt;b&gt;s&lt;/b&gt;', $resp->body);
     }
 }

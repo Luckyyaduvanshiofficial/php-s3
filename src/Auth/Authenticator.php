@@ -179,6 +179,7 @@ final class Authenticator
             isPresigned: false,
             chunkSeedSignature: $streamingSigned ? $expected : null,
             amzDate: $amzDate,
+            permissions: $cred['permissions'] ?? ['read', 'write'],
         );
     }
 
@@ -303,6 +304,7 @@ final class Authenticator
             shortDate: $shortDate,
             payloadHash: 'UNSIGNED-PAYLOAD',
             isPresigned: true,
+            permissions: $cred['permissions'] ?? ['read', 'write'],
         );
     }
 

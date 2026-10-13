@@ -70,4 +70,24 @@ final class AuditLog
              FROM audit_log ORDER BY id DESC LIMIT ' . max(1, min(500, $limit)),
         );
     }
+
+    /** @return list<array<string, mixed>> */
+    public function recentForUser(int $userId, int $limit = 50): array
+    {
+        return $this->db->all(
+            'SELECT event_at, event_type, user_id, username, ip_masked, details_json
+             FROM audit_log WHERE user_id = ? ORDER BY id DESC LIMIT ' . max(1, min(200, $limit)),
+            [$userId],
+        );
+    }
+
+    public function countRecentSecurityEvents(): int
+    {
+        $row = $this->db->one(
+            "SELECT COUNT(*) AS c FROM audit_log
+             WHERE event_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)
+               AND (event_type LIKE '%failed%' OR event_type LIKE '%throttled%' OR event_type LIKE '%revoked%' OR event_type = 'storage.quota_exceeded')",
+        );
+        return (int) ($row['c'] ?? 0);
+    }
 }

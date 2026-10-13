@@ -28,6 +28,7 @@ final class AuthContext
 {
     /**
      * @param list<string>|null $allowedBuckets null = unrestricted (owner keys)
+     * @param list<string> $permissions operations this key may perform
      * @param string|null $chunkSeedSignature aws-chunked: the Authorization-header
      *        signature that seeds per-chunk signature chaining (signed modes only)
      * @param string|null $amzDate full x-amz-date (YYYYMMDDTHHMMSSZ), needed by
@@ -44,6 +45,7 @@ final class AuthContext
         public readonly bool $isPresigned,
         public readonly ?string $chunkSeedSignature = null,
         public readonly ?string $amzDate = null,
+        public readonly array $permissions = ['read', 'write'],
     ) {
     }
 
@@ -57,5 +59,15 @@ final class AuthContext
     public function chunksAreSigned(): bool
     {
         return $this->payloadHash !== 'STREAMING-UNSIGNED-PAYLOAD-TRAILER';
+    }
+
+    public function canRead(): bool
+    {
+        return in_array('read', $this->permissions, true);
+    }
+
+    public function canWrite(): bool
+    {
+        return in_array('write', $this->permissions, true);
     }
 }

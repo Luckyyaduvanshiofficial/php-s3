@@ -60,7 +60,7 @@ final class LocalFilesystemStorage implements StorageInterface
 
     /* ---------------------------------------------------------- staging */
 
-    public function stage($inputStream, ?int $expectedBytes, ?int $maxBytes = null): StagedObject
+    public function stage($inputStream, ?int $expectedBytes, ?int $maxBytes = null, ?callable $onProgress = null): StagedObject
     {
         $tmpPath = $this->root . '/tmp/' . bin2hex(random_bytes(16));
         $out = fopen($tmpPath, 'x+b');
@@ -91,6 +91,9 @@ final class LocalFilesystemStorage implements StorageInterface
                 if ($expectedBytes !== null && $size > $expectedBytes + 1) {
                     // +1 slack, then fail below — cheaper than erroring on first extra byte
                     break;
+                }
+                if ($onProgress !== null) {
+                    $onProgress($size);
                 }
                 hash_update($md5, $chunk);
                 hash_update($sha, $chunk);

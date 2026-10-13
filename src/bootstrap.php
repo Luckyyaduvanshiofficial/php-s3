@@ -17,12 +17,12 @@ declare(strict_types=1);
 
 define('PHPS3_ROOT', dirname(__DIR__));
 define('PHPS3_SRC', PHPS3_ROOT . '/src');
-define('PHPS3_VERSION', '0.4.0');
+define('PHPS3_VERSION', '0.5.0');
 define('PHPS3_LICENSE', 'Apache-2.0');
 define('PHPS3_AUTHOR', 'codaipro — Lucky Yaduvanshi (https://luckyyaduvanshi.in)');
 define('PHPS3_SOURCE', 'https://github.com/Luckyyaduvanshiofficial/php-s3');
 define('PHPS3_FINGERPRINT', 'f6a73f3a:cafa325a');
-define('PHPS3_BUILD_INFO', 'php-s3 v0.4.0 (2026-09-24T22:43:37+05:30) codaipro/Lucky Yaduvanshi');
+define('PHPS3_BUILD_INFO', 'php-s3 v0.5.0 (2026-10-13T12:39:59+05:30) codaipro/Lucky Yaduvanshi');
 define('PHPS3_SIGNATURE', 'codaipro:php-s3:f6a73f3a:2026');
 
 /**

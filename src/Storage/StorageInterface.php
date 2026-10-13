@@ -36,7 +36,7 @@ interface StorageInterface
      * @param resource $inputStream
      * @throws \PhpS3\S3\Exception\S3Exception on size mismatch / IO failure / ceiling breach
      */
-    public function stage($inputStream, ?int $expectedBytes, ?int $maxBytes = null): StagedObject;
+    public function stage($inputStream, ?int $expectedBytes, ?int $maxBytes = null, ?callable $onProgress = null): StagedObject;
 
     /**
      * Atomically move a staged object into its final location.

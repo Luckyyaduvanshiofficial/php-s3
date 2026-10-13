@@ -30,6 +30,7 @@ use PhpS3\Meta\Crypto;
 use PhpS3\Meta\Database;
 use PhpS3\Meta\MultipartRepository;
 use PhpS3\Meta\ObjectRepository;
+use PhpS3\Meta\QuotaRepository;
 use PhpS3\Meta\UserRepository;
 use PhpS3\S3\Exception\S3Exception;
 use PhpS3\S3\Handlers\BucketHandler;
@@ -103,6 +104,9 @@ final class Kernel
         if (str_starts_with($path, '/_admin')) {
             return $this->admin()->handle($request);
         }
+        if (str_starts_with($path, '/_console')) {
+            return $this->admin()->handle($request);
+        }
 
         /* ----------------------------------------------------------- S3 */
         $parsed = OperationResolver::parsePath($request, (string) ($this->config['base_domain'] ?? ''));
@@ -112,7 +116,31 @@ final class Kernel
 
         $operation = OperationResolver::resolve($request, $parsed);
 
-        $auth = $this->authenticator()->authenticate($request);
+        try {
+            $auth = $this->authenticator()->authenticate($request);
+        } catch (S3Exception $e) {
+            if (in_array($e->errorCode, ['AccessDenied', 'InvalidAccessKeyId', 'SignatureDoesNotMatch', 'RequestTimeTooSkewed'], true)) {
+                $this->audit()->record('s3.auth_failed', null, null, [
+                    'error_code' => $e->errorCode,
+                    'operation' => $operation->value,
+                ], $request->remoteAddr, $request->header('user-agent'));
+            }
+            throw $e;
+        }
+        $readOnlyOperations = [
+            S3Operation::ServiceListBuckets,
+            S3Operation::BucketHead,
+            S3Operation::BucketLocation,
+            S3Operation::ObjectGet,
+            S3Operation::ObjectHead,
+            S3Operation::ListObjectsV1,
+            S3Operation::ListObjectsV2,
+            S3Operation::MultipartListParts,
+            S3Operation::MultipartListUploads,
+        ];
+        if (in_array($operation, $readOnlyOperations, true) ? !$auth->canRead() : !$auth->canWrite()) {
+            throw S3Exception::accessDenied();
+        }
 
         // Size gate before any bucket/DB work (cheap DoS guard).
         $maxBytes = $this->maxObjectBytes();
@@ -134,7 +162,27 @@ final class Kernel
             }
         }
 
-        return $this->execute($request, $auth, $parsed, $operation);
+        try {
+            $response = $this->execute($request, $auth, $parsed, $operation);
+            if ($response->status < 400 && in_array($operation, [S3Operation::BucketDelete, S3Operation::ObjectDelete, S3Operation::ObjectsDelete], true)) {
+                $owner = $this->users()->find($auth->ownerId);
+                $this->audit()->record($operation === S3Operation::BucketDelete ? 'bucket.delete' : 'object.delete', $auth->ownerId, $owner['username'] ?? null, [
+                    'bucket' => $parsed['bucket'],
+                    'key' => $parsed['key'],
+                    'operation' => $operation->value,
+                ], $request->remoteAddr, $request->header('user-agent'));
+            }
+            return $response;
+        } catch (S3Exception $e) {
+            if ($e->errorCode === 'QuotaExceeded') {
+                $owner = $this->users()->find($auth->ownerId);
+                $this->audit()->record('storage.quota_exceeded', $auth->ownerId, $owner['username'] ?? null, [
+                    'bucket' => $parsed['bucket'],
+                    'operation' => $operation->value,
+                ], $request->remoteAddr, $request->header('user-agent'));
+            }
+            throw $e;
+        }
     }
 
     /**
@@ -202,7 +250,7 @@ final class Kernel
             return new \PhpS3\Admin\AdminKernel();
         }
 
-        return new \PhpS3\Admin\AdminKernel($this->db(), $this->users(), $this->accessKeys(), $this->buckets(), $this->objects(), $this->storage());
+        return new \PhpS3\Admin\AdminKernel($this->db(), $this->users(), $this->accessKeys(), $this->buckets(), $this->objects(), $this->storage(), $this->quota());
     }
 
     private function services(): object
@@ -212,9 +260,9 @@ final class Kernel
             $service = new ServiceHandler($this->buckets(), $this->users(), $storage);
             $bucket = new BucketHandler($this->buckets(), $this->objects(), $storage, (int) ($this->config['max_buckets'] ?? 100));
             $responder = new ObjectResponder($storage);
-            $object = new ObjectHandler($this->buckets(), $this->objects(), $storage, $responder, $this->maxObjectBytes());
+            $object = new ObjectHandler($this->buckets(), $this->objects(), $storage, $responder, $this->maxObjectBytes(), $this->quota());
             $list = new ListHandler($this->buckets(), $this->objects());
-            $multipart = new MultipartHandler($this->buckets(), $this->objects(), $this->multipartUploads(), $storage, $this->maxObjectBytes());
+            $multipart = new MultipartHandler($this->buckets(), $this->objects(), $this->multipartUploads(), $storage, $this->maxObjectBytes(), $this->quota());
 
             $this->services = (object) compact('service', 'bucket', 'object', 'list', 'multipart');
         }
@@ -270,6 +318,17 @@ final class Kernel
     {
         static $repo;
         return $repo ??= new UserRepository($this->db());
+    }
+
+    private function quota(): QuotaRepository
+    {
+        static $repo;
+        return $repo ??= new QuotaRepository($this->db());
+    }
+
+    private function audit(): \PhpS3\Admin\AuditLog
+    {
+        return new \PhpS3\Admin\AuditLog($this->db());
     }
 
     private function maxObjectBytes(): int

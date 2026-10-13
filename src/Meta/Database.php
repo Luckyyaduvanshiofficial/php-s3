@@ -87,6 +87,11 @@ final class Database
         return $this->pdo;
     }
 
+    public function driverName(): string
+    {
+        return (string) $this->pdo()->getAttribute(\PDO::ATTR_DRIVER_NAME);
+    }
+
     /**
      * @param array<int|string, mixed> $params
      * @return \PDOStatement

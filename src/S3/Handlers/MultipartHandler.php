@@ -27,6 +27,7 @@ use PhpS3\Http\Response;
 use PhpS3\Meta\BucketRepository;
 use PhpS3\Meta\MultipartRepository;
 use PhpS3\Meta\ObjectRepository;
+use PhpS3\Meta\QuotaRepository;
 use PhpS3\S3\BucketNameValidator;
 use PhpS3\S3\Exception\S3Exception;
 use PhpS3\S3\ChunkedDecoder;
@@ -55,6 +56,7 @@ final class MultipartHandler
         private readonly MultipartRepository $uploads,
         private readonly StorageInterface $storage,
         private readonly int $maxObjectBytes,
+        private readonly ?QuotaRepository $quota = null,
     ) {
     }
 
@@ -66,8 +68,8 @@ final class MultipartHandler
         return match ($op) {
             S3Operation::MultipartCreate => $this->create($request, $auth, $bucket, $bucketId, (string) $key),
             S3Operation::MultipartUploadPart => $this->uploadPart($request, $auth, $bucket, $bucketId, (string) $key),
-            S3Operation::MultipartComplete => $this->complete($request, $bucket, $bucketId, (string) $key),
-            S3Operation::MultipartAbort => $this->abort($request, $bucketId, (string) $key),
+            S3Operation::MultipartComplete => $this->complete($request, $bucket, $bucketId, (string) $key, $auth->ownerId),
+            S3Operation::MultipartAbort => $this->abort($request, $bucketId, (string) $key, $auth->ownerId),
             S3Operation::MultipartListParts => $this->listParts($request, $bucket, $bucketId, (string) $key),
             S3Operation::MultipartListUploads => $this->listUploads($bucket, $bucketId, $request),
             default => throw S3Exception::methodNotAllowed(),
@@ -125,12 +127,51 @@ final class MultipartHandler
             throw S3Exception::internalError('insufficient storage space');
         }
 
+        $existingParts = $this->uploads->parts($uploadId);
+        $oldPartBytes = 0;
+        foreach ($existingParts as $part) {
+            if ((int) $part['part_number'] === $partNumber) {
+                $oldPartBytes = (int) $part['size'];
+                break;
+            }
+        }
+        $reservationId = substr(hash('sha256', 'multipart:' . $uploadId . ':' . $partNumber), 0, 32);
+        $reservationRef = $uploadId . ':' . $partNumber;
+        if ($this->quota !== null) {
+            foreach ($existingParts as $part) {
+                $existingNumber = (int) $part['part_number'];
+                $existingRef = $uploadId . ':' . $existingNumber;
+                $existingReservationId = substr(hash('sha256', 'multipart:' . $existingRef), 0, 32);
+                $this->quota->reserve($auth->ownerId, $existingReservationId, 'multipart', $existingRef, (int) $part['size']);
+            }
+            if ($declared !== null) {
+                $this->quota->reserve($auth->ownerId, $reservationId, 'multipart', $reservationRef, $declared);
+            }
+        }
+
         [$body, $chunkState] = $streaming
             ? ChunkedDecoder::wrap($request->bodyStream(), $auth)
             : [$request->bodyStream(), null];
 
         // Streaming: signature/length errors surface via ChunkedDecoder::assertValid below.
-        $staged = $this->storage->stage($body, $chunkState !== null ? null : $declared, self::MAX_PART_BYTES);
+        try {
+            $progress = $this->quota !== null && $declared === null
+                ? function (int $size) use ($auth, $reservationId, $reservationRef): void {
+                    $this->quota->reserve(
+                        $auth->ownerId,
+                        $reservationId,
+                        'multipart',
+                        $reservationRef,
+                        $size,
+                        true,
+                    );
+                }
+                : null;
+            $staged = $this->storage->stage($body, $chunkState !== null ? null : $declared, self::MAX_PART_BYTES, $progress);
+        } catch (\Throwable $e) {
+            $this->restoreMultipartPartReservation($auth->ownerId, $reservationId, $reservationRef, $oldPartBytes);
+            throw $e;
+        }
         try {
             if ($chunkState !== null) {
                 ChunkedDecoder::assertValid($chunkState, $declared);
@@ -139,10 +180,16 @@ final class MultipartHandler
             $this->storage->commitPart($uploadId, $partNumber, $staged);
         } catch (\Throwable $e) {
             $this->storage->discard($staged);
+            $this->restoreMultipartPartReservation($auth->ownerId, $reservationId, $reservationRef, $oldPartBytes);
             throw $e;
         }
 
-        $this->uploads->upsertPart($uploadId, $partNumber, $staged->size, $staged->md5);
+        try {
+            $this->uploads->upsertPart($uploadId, $partNumber, $staged->size, $staged->md5);
+        } catch (\Throwable $e) {
+            $this->restoreMultipartPartReservation($auth->ownerId, $reservationId, $reservationRef, $oldPartBytes);
+            throw $e;
+        }
 
         return Response::make(200, '', [
             'ETag' => '"' . $staged->md5 . '"',
@@ -152,7 +199,7 @@ final class MultipartHandler
 
     /* -------------------------------------------------------- COMPLETE */
 
-    private function complete(Request $request, string $bucket, int $bucketId, string $key): Response
+    private function complete(Request $request, string $bucket, int $bucketId, string $key, int $ownerId): Response
     {
         KeySanitizer::validate($key);
         $uploadId = $this->uploadId($request);
@@ -177,6 +224,9 @@ final class MultipartHandler
         foreach ($this->uploads->parts($uploadId) as $row) {
             $stored[(int) $row['part_number']] = $row;
         }
+        $previousObject = $this->objects->get($bucketId, $key);
+        $replacementBytes = (int) ($previousObject['size'] ?? 0);
+        $reservationId = substr(hash('sha256', 'multipart:' . $uploadId), 0, 32);
         $numbers = [];
         $total = 0;
         $count = count($requested);
@@ -198,6 +248,9 @@ final class MultipartHandler
         if (!$this->storage->hasRoomFor($total)) {
             throw S3Exception::internalError('insufficient storage space');
         }
+        if ($this->quota !== null) {
+            $this->quota->reserveMultipartCompletion($ownerId, $reservationId, $uploadId, $total, $replacementBytes, $bucketId, $key);
+        }
 
         // Composite ETag before any bytes are committed (corrupt rows fail
         // here with no blob to clean up).
@@ -206,15 +259,20 @@ final class MultipartHandler
             $requested,
         ));
 
-        $staged = $this->storage->assembleParts($uploadId, $numbers, $total);
+        try {
+            $staged = $this->storage->assembleParts($uploadId, $numbers, $total);
+        } catch (\Throwable $e) {
+            $this->restoreMultipartReservations($ownerId, $uploadId);
+            throw $e;
+        }
         try {
             $storagePath = $this->storage->commit($bucket, $key, $staged);
         } catch (\Throwable $e) {
             $this->storage->discard($staged);
+            $this->restoreMultipartReservations($ownerId, $uploadId);
             throw $e;
         }
 
-        $previousObject = $this->objects->get($bucketId, $key);
         try {
             $row = $this->objects->put(
                 $bucketId,
@@ -228,6 +286,7 @@ final class MultipartHandler
             );
         } catch (\Throwable) {
             $this->storage->delete($bucket, $storagePath);
+            $this->restoreMultipartReservations($ownerId, $uploadId);
             throw S3Exception::internalError('metadata write failed');
         }
         if ($row !== [] && ($row['storage_path'] ?? '') !== $storagePath) {
@@ -240,6 +299,13 @@ final class MultipartHandler
 
         $this->uploads->deleteUpload($uploadId);
         $this->storage->deleteParts($uploadId);
+        if ($this->quota !== null) {
+            try {
+                $this->quota->releaseMultipart($ownerId, $uploadId);
+            } catch (\Throwable) {
+                // Reservation expiry cleans up if the database is unavailable.
+            }
+        }
 
         return Response::make(200, Xml::completeMultipartUpload($bucket, $key, '"' . $etag . '"'), [
             'Content-Type' => 'application/xml',
@@ -249,13 +315,16 @@ final class MultipartHandler
 
     /* ---------------------------------------------------------- ABORT */
 
-    private function abort(Request $request, int $bucketId, string $key): Response
+    private function abort(Request $request, int $bucketId, string $key, int $ownerId): Response
     {
         $uploadId = $this->uploadId($request);
         $this->requireUpload($bucketId, $key, $uploadId);
 
         $this->uploads->deleteUpload($uploadId);
         $this->storage->deleteParts($uploadId);
+        if ($this->quota !== null) {
+            $this->quota->releaseMultipart($ownerId, $uploadId);
+        }
 
         return Response::make(204);
     }
@@ -377,5 +446,28 @@ final class MultipartHandler
         }
 
         return (int) $raw;
+    }
+
+    private function restoreMultipartPartReservation(int $ownerId, string $reservationId, string $reference, int $oldBytes): void
+    {
+        if ($this->quota === null) {
+            return;
+        }
+        try {
+            if ($oldBytes === 0) $this->quota->release($ownerId, 'multipart', $reference);
+            else $this->quota->reserve($ownerId, $reservationId, 'multipart', $reference, $oldBytes);
+        } catch (\Throwable) {
+            // Old reservation data remains until GC if the database is unavailable.
+        }
+    }
+
+    private function restoreMultipartReservations(int $ownerId, string $uploadId): void
+    {
+        if ($this->quota === null) return;
+        try {
+            $this->quota->restoreMultipartParts($ownerId, $uploadId, $this->uploads->parts($uploadId));
+        } catch (\Throwable) {
+            // Reservation expiry is the final cleanup path after database failure.
+        }
     }
 }

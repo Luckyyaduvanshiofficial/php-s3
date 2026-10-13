@@ -61,6 +61,19 @@ final class BucketRepository
         );
     }
 
+    /** @return list<array<string, mixed>> */
+    public function allWithUsage(): array
+    {
+        return $this->db->all(
+            'SELECT b.id, b.name, b.owner_id, b.created_at, u.username,
+                    COUNT(o.id) AS objects, COALESCE(SUM(o.size), 0) AS bytes
+             FROM buckets b JOIN users u ON u.id = b.owner_id
+             LEFT JOIN objects o ON o.bucket_id = b.id
+             GROUP BY b.id, b.name, b.owner_id, b.created_at, u.username
+             ORDER BY u.username, b.name',
+        );
+    }
+
     public function isEmpty(int $bucketId): bool
     {
         $row = $this->db->one('SELECT COUNT(*) AS c FROM objects WHERE bucket_id = ?', [$bucketId]);
@@ -77,9 +90,9 @@ final class BucketRepository
     public function usage(int $ownerId): array
     {
         return $this->db->all(
-            'SELECT b.name AS name, COUNT(o.id) AS objects, COALESCE(SUM(o.size), 0) AS bytes
+            'SELECT b.name AS name, b.created_at, COUNT(o.id) AS objects, COALESCE(SUM(o.size), 0) AS bytes
              FROM buckets b LEFT JOIN objects o ON o.bucket_id = b.id
-             WHERE b.owner_id = ? GROUP BY b.id, b.name ORDER BY b.name',
+             WHERE b.owner_id = ? GROUP BY b.id, b.name, b.created_at ORDER BY b.name',
             [$ownerId],
         );
     }

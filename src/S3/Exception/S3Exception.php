@@ -68,6 +68,16 @@ class S3Exception extends \RuntimeException
         return new self('AccessDenied', 'Access Denied.', 403, $extra);
     }
 
+    public static function quotaExceeded(?int $quotaBytes = null, int $usedBytes = 0): self
+    {
+        return new self(
+            'QuotaExceeded',
+            'The upload exceeds this account’s available storage quota.',
+            403,
+            $quotaBytes === null ? [] : ['QuotaBytes' => (string) $quotaBytes, 'UsedBytes' => (string) $usedBytes],
+        );
+    }
+
     public static function invalidAccessKeyId(): self
     {
         return new self('InvalidAccessKeyId', 'The AWS Access Key Id you provided does not exist in our records.', 403);
