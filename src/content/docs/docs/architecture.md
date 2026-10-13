@@ -102,7 +102,7 @@ large SaaS*, which is not what we are building.
                                     │
           ┌─────────────────────────┼──────────────────────────────┐
           ▼                         ▼                              ▼
-  src/Auth (SigV4)        src/S3/OperationResolver      src/Admin (/_admin/*)
+  src/Auth (SigV4)        src/S3/OperationResolver      src/Admin (/_admin/* and /_console/*)
   header + presigned      method×query×header → enum     session-auth, CSRF
   hash_equals verify              │                      separate middleware
           │                       ▼
@@ -168,7 +168,7 @@ large SaaS*, which is not what we are building.
 | `Meta/Database` + repositories | PDO (MySQL/MariaDB) access; prepared statements only | Listing/pagination performance (index-driven), transactional metadata, multi-tenant ACLs |
 | `Meta/Migrations` | Versioned schema, one transaction per version, additive-only | opsfour's `SchemaManager` pattern; safe upgrades for existing installs |
 | `KeySanitizer`, `BucketNameValidator` | Canonicalize/validate every path-shaped input | lite-s3's fatal flaw was validating in *one* handler only |
-| `Admin/*` (minimal) | Installer, login, access keys, buckets, usage | Brief: installable by visiting a URL; minimal = small CSRF surface |
+| `Admin/*` | Installer, rate-limited login, role-gated admin and user consoles, keys, buckets, file manager, settings, audit | Same plain-PHP entry point keeps the shared-hosting deployment simple |
 | `cli/php-s3.php` | `migrate`, `gc`, `key:*` commands | Shared hosting has cron (cPanel) but no daemons; `gc` runs via cron or opportunistically |
 | `Support/Logger` | JSONL append log with `flock` | buckie's pattern; operability without a logging daemon |
 
@@ -463,10 +463,10 @@ as supported only when a test proves it through a real client.
   support-matrix CI test (PHP suite with `aws/aws-sdk-php` already runs in the smoke).
 
 ### Advanced (Phase 5)
-- Rate limiting, storage quotas, audit log, admin usage dashboard detail, per-bucket CORS
-  configuration, virtual-hosted-style addressing hardening, public-read via bucket policy,
-  opportunistic GC + documented cron, security/performance test pass, recovery
-  (orphan-scan command), storage quota enforcement per key.
+- Per-bucket CORS configuration, public-read via bucket policy, virtual-hosted-style
+  addressing hardening, and orphan-scan recovery tooling remain future work. Quotas,
+  account/key authorization, admin usage screens, audit logs, and opportunistic GC are now
+  implemented.
 
 ### Experimental (later / community)
 - Object versioning, lifecycle rules, object tagging, notifications, secondary storage
@@ -499,7 +499,7 @@ cPanel cron (for `gc`), `.user.ini`/`php_value` for upload/time limits.
 | MySQL `wait_timeout` kills idle connections during long uploads | Ping/reconnect before post-upload metadata write (lite-s3 lesson) |
 | No HTTPS guarantee at app level | Docs: HTTPS strongly recommended (SigV4 over cleartext is forgeable); installer warns when request is HTTP |
 | .htaccess not honored (some hosts) | Documented nginx/LiteSpeed server block equivalents; app never *depends* on rewrites for security of the data root — **data root must be outside web root** (installer enforces/warns) |
-| FPM workers don't share memory | No APCu/in-memory state on any critical path; rate limiter (Phase 5) is file/DB-based |
+| FPM workers don't share memory | No APCu/in-memory state on any critical path; login throttling, sessions, audit, and quota reservations are database-backed |
 
 **Hard deployment rules the installer enforces:**
 1. Data root outside the document root (or, if impossible, protected by `.htaccess`
@@ -586,3 +586,36 @@ did this properly). `docs/S3-COMPATIBILITY.md` is generated/maintained alongside
 | Range requests | In MVP | Later | Stated use case (images/video from shared hosting) |
 | Dependencies | 0 runtime / Composer dev-only | Bundled vendor | Upload-and-go deployment; CI/dev still standard |
 | PHP floor | 8.1 | 8.0 / 8.4 | 8.1 is widely available on hosts; 8.4 (opsfour) is not |
+
+
+## 13. Multi-user console and quota accounting
+
+Migration versions 4 through 6 add user email/role/status/quota/session-version fields,
+access-key permission metadata, active-session hashes, quota reservations, object replacement
+references, and administrator settings.
+The migration explicitly promotes accounts that existed before roles were introduced to
+`admin`; new accounts are ordinary `user` accounts. These changes add columns and tables
+without dropping buckets, objects, keys, or metadata. Back up MySQL before an upgrade, deploy
+the new files, and run `php cli/php-s3.php migrate`. Restore the paired database backup and
+application files together if migration must be recovered.
+
+`/_admin/*` and `/_console/*` share the existing AdminKernel and session model. The current
+account role is read from MySQL on each request. CSRF tokens guard every write form, and
+session hashes are stored server-side so suspension, password change, or revocation takes
+effect on the next request. Key permissions and bucket allow-lists are applied in the S3
+request path after SigV4 verification. A disabled owner also makes its credentials invalid.
+
+`QuotaRepository` serializes reservation decisions by locking the tenant's user row in a
+transaction. The committed object index remains the source of used bytes. Uploads reserve
+only growth beyond an existing object, and reservations remember that object's key. If a
+delete races with a replacement, the reservation is converted to the full incoming size
+before committed metadata is removed. Browser uploads, object PUT/CopyObject, and multipart
+parts/completion use the same ledger. Multipart parts have independent reservations;
+completion atomically replaces those reservations with the final object growth. Failed writes
+restore or release reservations, and `gc` removes expired records. The administrator-set capacity is a warning estimate;
+`disk_free_space()` is never treated as the hosting plan's allocated quota.
+
+Public account requests are configurable and off by default. If an administrator enables
+them, requests are rate-limited and remain in `pending` status; they cannot sign in or use
+S3 credentials until an administrator reviews the request, assigns a quota, and activates
+the account.

@@ -53,26 +53,26 @@ Result inside `public_html`: `index.php`, `.htaccess`, `src/`, `cli/`. Nothing e
 
 ## 4. Run the installer
 
-Open `https://your-domain.com/_admin/install` and fill the form:
+Open `https://your-domain.com/install` and fill the short form:
 
 | Field | Value on Hostinger |
 |---|---|
-| Data root | `/home/uXXXXXXXX/domains/your-domain.com/php-s3-data` |
-| Database DSN | `mysql:host=127.0.0.1;dbname=uXXXXXXXX_mydb` |
-| DB username / password | as created in step 2 |
-| Admin username / password | your login (≥ 10 chars password — no default exists) |
-| Region | `us-east-1` (label only) |
-| Base domain | leave empty (path-style) |
+| MySQL database name | Full name from hPanel, including `uXXXXXXXX_` |
+| MySQL username / password | The credentials created in step 2 |
+| Admin username / password | Your login; password must be at least 10 characters |
 
-The installer creates the directory if the parent is writable, writes
-`config.php` next to `public_html`, runs migrations, and locks itself.
+The installer connects to MySQL at `127.0.0.1`, creates a data directory outside
+`public_html`, writes `config.php` beside `public_html`, applies the schema, and locks
+itself. You do not need to enter a DSN, region, base domain, or data path.
 
-## 5. Log in and grab your keys
+## 5. Log in and provision storage
 
-1. `https://your-domain.com/_admin/login`
-2. **Buckets → New bucket**, **Keys → New key** (copy the secret once)
-3. **Connect** in the nav — endpoint, region, bucket picker, key + secret, each with a
-   copy button. This is the panel you keep open while configuring a client.
+1. Sign in at `https://your-domain.com/_admin/login`
+2. In the administrator console, open **Users** and create an account with a quota
+3. The user signs in at the same login page, creates a private bucket, and uploads files
+4. Create a scoped API key in **Access Keys**. Copy its secret once when it is shown
+5. **Connect** displays the endpoint, region, bucket, access key ID, and S3 client examples;
+   old secrets are never shown again
 
 ## 6. Second instance (separate domain/subdomain)
 
@@ -88,10 +88,10 @@ Two installs never share config, keys, or data — isolating the demo is the poi
 
 ## Updating
 
-1. Upload the new `index.php`, `.htaccess`, `src/` (overwrite)
-2. Run `php cli/php-s3.php migrate` if the release notes say so (or just run it — it's
-   idempotent)
-3. Never delete `config.php` or the data root during an update
+1. Back up the database.
+2. Upload the new `index.php`, `.htaccess`, `src/`, and `cli/` (overwrite the app files).
+3. Run `php cli/php-s3.php migrate` (it is safe to re-run).
+4. Never delete `config.php` or the data root during an update.
 
 ## Hostinger-specific notes
 
@@ -112,7 +112,7 @@ Two installs never share config, keys, or data — isolating the demo is the poi
 |---|---|
 | 403 / 404 immediately after upload | `index.php` not at `public_html/` root, or extracted into a subfolder (`public_html/php-s3/…`) — files must sit directly in the docroot; `.htaccess` missing or hidden |
 | 500 everywhere | hPanel → PHP Configuration: wrong version or missing extension; check error log in the same screen |
-| DB "Access denied" | DSN host must be `127.0.0.1` (not `srvNNNN.hstgr.io`, not `localhost`); DB name/user must include the `uXXXXXXXX_` prefix exactly as shown in hPanel |
+| DB "Access denied" | Confirm DB name and username include the `uXXXXXXXX_` prefix exactly as shown in hPanel; the installer uses `127.0.0.1` internally |
 | Installer can't write `config.php` | `config.php` path is one level **above** `public_html` — make sure you own that folder (it exists by default on Hostinger) |
 | Data root not writable | Create `php-s3-data` in File Manager at `/home/uXXXXXXXX/domains/your-domain.com/php-s3-data` |
 | Signature errors in clients | Client using virtual-hosted style — force path-style; ensure HTTPS is on (Force HTTPS) |

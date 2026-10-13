@@ -1,134 +1,86 @@
 ---
 title: Installation
-description: Install php-s3 on any PHP host — files, database, web installer wizard.
+description: Install php-s3 on shared hosting with a short MySQL and administrator setup.
 ---
 
-php-s3 installs like WordPress: upload a few files, open a browser, fill one form.
+php-s3 installs on Hostinger, cPanel, Apache, and LiteSpeed without Composer or a server process.
 
 ## Requirements
 
 | | |
 |---|---|
-| PHP | **8.1+** with `pdo_mysql`, `openssl`, `fileinfo`, `mbstring` |
-| Database | MySQL 5.7+ / MariaDB 10.3+ (any DB PDO can reach) |
-| Web server | Apache or LiteSpeed (`.htaccess` included); nginx works with equivalent rules |
-| Extra | **Nothing.** No Composer on the server, no daemon, no root, no Node |
+| PHP | **8.1+** with `pdo_mysql`, `openssl`, `fileinfo`, and `mbstring` |
+| Database | MySQL 5.7+ or MariaDB 10.3+ |
+| Web server | Apache or LiteSpeed with `.htaccess`; nginx with equivalent rules |
+| Runtime services | None |
 
-The install page shows these checks live (PHP version, extensions, writable paths) so you
-see what's missing before you submit.
+## 1. Upload the application
 
-## Step 1 — Upload the files
+Place the contents of the release in your document root. The public files must be at the archive root:
 
-Download a release or clone the repository, then place **four items** on the server:
-
-```
-index.php      ← public/index.php (the only web-reachable file)
-.htaccess      ← public/.htaccess (rewrite + Authorization header passthrough)
-src/           ← the application
-cli/           ← php-s3.php (maintenance commands)
+```text
+index.php       # public/index.php
+.htaccess       # public/.htaccess
+src/
+cli/
 ```
 
-Two layouts:
+On a Git checkout, point the web root at `public/`. Keep the data directory and generated `config.php` outside the web root. The installer chooses a data directory automatically.
 
-**Flat (shared hosting, tested):** put those four items directly in your document root.
+## 2. Create a MySQL database
 
-```
-/home/you/domains/your-domain.com/
-├── public_html/          ← docroot: index.php, .htaccess, src/, cli/
-├── config.php            ← written by the installer (never web-reachable)
-└── php-s3-data/          ← objects + logs (your choice, outside the docroot)
-```
+Create an empty database and database user in your hosting panel, then grant that user full access to the database. Copy the full database name and username, including any account prefix.
 
-**Git layout:** clone the repo, point the vhost document root at `public/`.
-`vendor/` is **not** needed at runtime (it's dev-only: PHPUnit, AWS SDK for tests).
+## 3. Install from the browser
 
-## Step 2 — Create an empty database
+Open `https://your-domain.example/install` and enter only:
 
-Any panel or SQL client works — create a database and a user with full rights on it.
+- MySQL database name
+- MySQL username and password
+- Administrator username and password (at least 10 characters)
 
-## Step 3 — Run the installer
+The installer builds the MySQL connection string using `127.0.0.1`, chooses a data directory outside the web root, applies the initial schema, and creates the administrator. The endpoint and region are derived from the request and default configuration; there is no DSN field to fill in.
 
-Open:
+After installation, the installer locks and sends you to `/_admin/login`.
 
-```
-https://your-domain.example/_admin/install
-```
+## 4. Provision users and buckets
 
-The wizard writes `config.php` **outside** the document root, runs migrations, and creates
-the admin user. Fields:
+Sign in as the administrator. Open **Users** to create a user and assign a storage quota. Public account requests are off by default. If enabled later in **Settings**, each request stays pending until an administrator reviews it, assigns a quota, and activates the account.
 
-| Field | Notes |
-|---|---|
-| **Data root** | Absolute path, **outside the web root** (e.g. `/home/you/domains/your-domain.com/php-s3-data`). Objects and logs live here. |
-| **Database DSN** | `mysql:host=127.0.0.1;dbname=your_db` — use `127.0.0.1`, not `localhost`, unless your host says otherwise (some hosts resolve `localhost` to a socket that rejects TCP clients) |
-| **Database username / password** | The credentials you just created |
-| **Admin username** | 3–64 chars, letters/digits/`_`/`-`/`.` |
-| **Admin password** | **Minimum 10 characters.** There is no default password — you set it here |
-| **Region** | Default `us-east-1`. It's a label your clients see; any string works |
-| **Base domain** | Optional, advanced — only for virtual-hosted-style addressing (`bucket.your-domain.example`). Leave empty for path-style (recommended) |
+A user signs in at `/_admin/login` and is sent to the user console. From there they can create a private bucket, upload files, view usage, and create scoped API keys. Administrators use the same login and are sent to the administrator console.
 
-Press **Install**. On success you land on the login page.
+## 5. Connect an S3 client
 
-The installer then **locks itself**: `config.php` exists → `/_admin/install` refuses to run
-again. Reinstalling = delete `config.php` (and optionally the data root) and start over.
-
-## Step 4 — First login
-
-1. `https://your-domain.example/_admin/login`
-2. **Buckets → New bucket** — name: lowercase letters, digits, `-`, `.` (3–63 chars,
-   S3 rules), e.g. `media`
-3. **Keys → New key** — description (`laptop-rclone`), optional bucket allow-list
-   (empty = every bucket, `*` = every bucket, `photos, backups` = only those)
-4. Copy the **Access key ID** and **Secret access key** shown once — then use
-   **Connect** (nav menu) anytime to re-copy them with the endpoint and a bucket picker
-
-## Step 5 — Point your client at it
-
-Path-style, custom endpoint:
+In the user console, create an API key with a name, one or more owned buckets, and read-only or read/write permission. Copy the secret when it appears; php-s3 shows it only once. **Connect** provides the endpoint, region, bucket, key ID, and client examples. Configure path-style addressing.
 
 ```bash
-export AWS_ACCESS_KEY_ID=AKIA...
-export AWS_SECRET_ACCESS_KEY=...
-aws s3 ls --endpoint-url https://your-domain.example
+export AWS_ACCESS_KEY_ID='AKIA...'
+export AWS_SECRET_ACCESS_KEY='copy-the-secret-shown-at-creation'
+aws s3 ls s3://my-bucket --endpoint-url https://your-domain.example --region us-east-1
 ```
 
-Full client recipes (AWS CLI, boto3, rclone, AWS SDK for PHP): **[Usage](/docs/usage)**.
+See [Usage](/docs/usage) for boto3, PHP SDK, JavaScript SDK, and rclone setup.
 
-## CLI maintenance
+## Upgrade an existing installation
+
+Before replacing application files, take a database backup and keep the existing data directory and `config.php` in place. Upload the new release, then run:
 
 ```bash
-php cli/php-s3.php migrate     # apply schema migrations (idempotent, safe to re-run)
-php cli/php-s3.php doctor      # environment / config health check
-php cli/php-s3.php gc          # purge expired multipart uploads + temp files
-php cli/php-s3.php key:create --owner=1 --buckets='*' --description=ci
+php cli/php-s3.php migrate
 ```
 
-`gc` is the only thing worth scheduling (cron): it reclaims storage from aborted or
-expired multipart uploads. Everything else runs on demand.
+The v4–v6 migrations add user policy, key permission, quota reservation, session, object replacement accounting, and system setting fields. Existing users are migrated as administrators; existing keys keep read/write access. The migrations are additive and do not remove buckets, keys, objects, or metadata. If an upgrade fails, restore the database backup and application files from the same point; retain `config.php` and the data directory.
 
-## Security checklist
-
-- [ ] HTTPS on — SigV4 over plain HTTP is forgeable; the installer warns if it's off
-- [ ] Data root **outside** the document root (the wizard enforces it)
-- [ ] Admin password ≥ 10 chars, not reused anywhere
-- [ ] Database not exposed to the internet (local user, `127.0.0.1`)
-- [ ] One key per client, bucket allow-list when a key should see a subset
-- [ ] Keep `config.php` out of backups you share — it holds the DB password and master key
+Run `php cli/php-s3.php doctor` after migration. Schedule `php cli/php-s3.php gc` daily if you want expired multipart uploads and stale quota reservations cleaned up promptly.
 
 ## Troubleshooting
 
 | Symptom | Cause / fix |
 |---|---|
-| **500 on every page** | PHP error — check the error log in your panel; confirm PHP ≥ 8.1 and `pdo_mysql` loaded |
-| **403 on `/`** | `index.php` or `.htaccess` missing from the docroot (re-upload both; a root-level `index.php` outside `public/` does **not** exist in this project) |
-| **404 on `/_admin`** | `.htaccess` rewrite not active — Apache/LiteSpeed must allow `.htaccess` (`AllowOverride`); on nginx, translate the rewrite rules into your server block |
-| **"MissingSecurityHeader" XML** | A request arrived **unsigned** — that's correct behavior (same as real AWS). Browsers hitting `/` directly get this; S3 clients must sign |
-| **Installer: "config.php already exists"** | The app is installed (or a partial install left a config). Delete `config.php` only if you really want to reinstall |
-| **"Access denied for user" / DSN error** | Wrong DB name/user/password in the DSN. Hosts that prefix names with your panel username: DSN is `mysql:host=127.0.0.1;dbname=u1234567_mydb` |
-| **Data root not writable** | Create the directory and `chown`/`chmod` it to the PHP user, or pick a path your host allows (e.g. a folder next to `public_html`) |
-| **Login rejected, credentials are right** | Login is throttled: **10 attempts / hour / IP**. Wait an hour or clear it from your panel's PHP side if locked out |
-| **Client gets "PermanentRedirect" or signature errors** | Client is trying virtual-hosted style — force path-style (`use_path_style_endpoint` in the AWS SDK, `addressing_style = path` in boto3, `endpoint` in rclone) |
+| Installer says database connection failed | Check the full prefixed database name/user/password. On shared hosting the app connects to MySQL at `127.0.0.1`; the hosting panel’s external database hostname is not used by the app. |
+| 404 on `/install` or `/_admin/login` | Ensure `index.php` and `.htaccess` are in the document root and rewrites are enabled. |
+| `MissingSecurityHeader` XML at `/` | Expected for an unsigned browser request. S3 clients must sign requests with SigV4. |
+| Upload rejected | Check account quota and the host’s PHP `upload_max_filesize` and `post_max_size` values. |
+| User cannot open a bucket | Buckets are private and account scoped. Confirm the signed-in user owns it and the API key includes that bucket. |
 
-Still stuck: `php cli/php-s3.php doctor` prints the environment and config state; the app
-log (`<data-root>/php-s3.log`) has request-level detail when `debug` is enabled in
-`config.php`.
+For diagnostics, run `php cli/php-s3.php doctor`; application logs are stored under the data directory.

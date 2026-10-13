@@ -1,54 +1,68 @@
 ---
 title: Usage
-description: Admin dashboard, access keys, and connecting AWS CLI, boto3, rclone and SDKs to php-s3.
+description: Manage private storage accounts, buckets, quotas, API keys, and S3 clients.
 ---
 
-## The admin panel
+## Sign in
 
-`https://your-domain.example/_admin/login` — session login, throttled (10 attempts /
-hour / IP).
+Open `/_admin/login`. The administrator is sent to the administrator console; a regular account is sent to the user console. Login attempts are rate limited. Public account requests are disabled by default. An administrator can enable them in **Settings**; requests remain pending until an administrator assigns a quota and activates the account.
+
+## User console
 
 | Page | What it does |
 |---|---|
-| **Dashboard** | Bucket list with object counts + sizes, system info (PHP, data root, region, config path) |
-| **Buckets** | Create / delete buckets (delete only when empty). Names: S3 rules — lowercase, digits, `-`, `.`, 3–63 chars |
-| **Keys** | Create / disable / delete access keys. Per key: description, **bucket allow-list**, last-used time, enable/disable toggle |
-| **Connect** | Everything a client needs in one place: endpoint, region, bucket picker, access key ID, secret — **each with a copy button** |
+| **Overview** | Used storage and quota, bucket/object counts, recent buckets and activity, quick actions |
+| **Buckets** | Create and open owned buckets; delete empty buckets |
+| **File Manager** | Browse prefixes, drag and drop uploads, view sizes and modification times, filter and sort objects, copy a path or object, download, delete, and create temporary share links |
+| **Access Keys** | Create named read-only or read/write credentials scoped to selected owned buckets; disable or revoke them |
+| **Connect** | Copy endpoint, region, bucket, access key ID, and SDK examples |
+| **Usage & Activity** | View committed and in-progress quota use and recent account events |
+| **Account** | Change email or password, inspect active sessions, and revoke other sessions |
 
-### Access keys
+Buckets are private. The web console checks ownership on every request, and the S3 API applies the same tenant and key restrictions.
 
-- **Secret is shown once at creation** — but as the owning admin you can re-display it
-  anytime from **Connect** (it's stored encrypted with your master key).
-- **Bucket allow-list**: empty or `*` = all buckets; `photos, backups` = the key can only
-  touch those buckets (403 on anything else).
-- One key per client/device. Disable a key to cut it off instantly without deleting it.
+### Quotas
 
-## Connecting a client
+Administrators assign a quota when creating a user and can update it later. S3 PUT, CopyObject, multipart part uploads/completion, and browser uploads reserve quota before writing. An upload that cannot reserve its required space is rejected before replacing existing data. Replacement objects are charged by their growth over the current object size. Expired reservations are ignored for enforcement and removed by `gc`.
 
-Everything is **path-style** with a **custom endpoint** — the same three settings in
-every client:
+Share links are signed download URLs created with an enabled, read-authorized API key scoped to the selected bucket. They expire after one hour. Sharing a link grants temporary access to that object; the bucket itself stays private.
 
-| Setting | Value |
+The capacity estimate in administrator settings is only a warning threshold. PHP’s filesystem free-space value does not represent a shared-hosting account’s allocated storage.
+
+## Administrator console
+
+| Page | What it does |
 |---|---|
-| Endpoint | `https://your-domain.example` (from **Connect**) |
-| Region | whatever your install uses (`us-east-1` by default — a label) |
-| Credentials | the key's Access key ID + Secret from **Connect** |
+| **Dashboard** | Account, bucket, object, quota allocation, actual storage, and capacity indicators |
+| **Users** | Create users, assign `admin` or `user`, activate/suspend/disable accounts, set quotas, review usage, and revoke sessions |
+| **All Buckets** | Review bucket owners and usage; delete empty buckets |
+| **Storage** | Compare allocated quotas, actual bytes, and active reservations |
+| **Security** | Review API credential metadata and revoke keys |
+| **Audit Logs** | Review login failures, policy changes, key changes, storage failures, and destructive actions |
+| **Settings** | Record an estimated hosting storage capacity for warnings |
+
+Suspending or disabling an account invalidates browser sessions and causes its S3 credentials to be rejected. Stored objects remain in place.
+
+## API keys and secrets
+
+Create a key with a descriptive name, a bucket allow-list, and either read-only or read/write permission. The S3 API enforces both restrictions. Existing keys from older installations retain read/write access until an administrator changes them.
+
+The secret is shown once immediately after key creation. Store it in your password manager or application secret store. The Connect page never decrypts or displays old secrets. If a secret is lost, revoke that key and create another.
+
+## Connect an application
+
+Use the endpoint shown on **Connect**, the configured region (normally `us-east-1`), and path-style addressing. The access key ID remains visible; use the secret copied at creation.
 
 ### AWS CLI
 
 ```bash
 export AWS_ACCESS_KEY_ID='AKIA...'
 export AWS_SECRET_ACCESS_KEY='...'
-export AWS_DEFAULT_REGION='us-east-1'
-
-aws s3 ls   s3://my-bucket/ --endpoint-url https://your-domain.example
-aws s3 cp   ./video.mp4 s3://my-bucket/ --endpoint-url https://your-domain.example
-aws s3 sync ./photos/  s3://my-bucket/photos/ --endpoint-url https://your-domain.example
+aws s3 ls s3://my-bucket --endpoint-url https://your-domain.example --region us-east-1
+aws s3 cp ./file.bin s3://my-bucket/file.bin --endpoint-url https://your-domain.example --region us-east-1
 ```
 
-Add `--endpoint-url` to each command (or wrap in a shell function / make it an alias).
-
-### Python (boto3)
+### Python boto3
 
 ```python
 import boto3
@@ -60,32 +74,9 @@ s3 = boto3.client(
     aws_access_key_id="AKIA...",
     aws_secret_access_key="...",
     region_name="us-east-1",
-    config=Config(s3={"addressing_style": "path"}),   # required
+    config=Config(s3={"addressing_style": "path"}),
 )
-
-s3.create_bucket(Bucket="media")
-s3.upload_file("video.mp4", "media", "video.mp4")
-```
-
-### rclone
-
-`rclone config` → `n` (new remote) → name `php-s3` → type `s3` → provider `AWS` →
-access key / secret → `endpoint = https://your-domain.example` → region `us-east-1` →
-leave ACL/versioning defaults. Or drop this into `rclone.conf`:
-
-```ini
-[php-s3]
-type = s3
-provider = AWS
-access_key_id = AKIA...
-secret_access_key = ...
-endpoint = https://your-domain.example
-region = us-east-1
-```
-
-```bash
-rclone lsd php-s3:
-rclone copy ./photos php-s3:media/photos
+s3.upload_file("file.bin", "my-bucket", "file.bin")
 ```
 
 ### AWS SDK for PHP
@@ -94,74 +85,53 @@ rclone copy ./photos php-s3:media/photos
 use Aws\S3\S3Client;
 
 $s3 = new S3Client([
-    'version'  => 'latest',
-    'region'   => 'us-east-1',
+    'version' => 'latest',
+    'region' => 'us-east-1',
     'endpoint' => 'https://your-domain.example',
-    'use_path_style_endpoint' => true,          // required
-    'credentials' => [
-        'key'    => 'AKIA...',
-        'secret' => '...',
-    ],
+    'use_path_style_endpoint' => true,
+    'credentials' => ['key' => getenv('AWS_ACCESS_KEY_ID'), 'secret' => getenv('AWS_SECRET_ACCESS_KEY')],
 ]);
-
-$s3->createBucket(['Bucket' => 'media']);
-$s3->putObject(['Bucket' => 'media', 'Key' => 'a.txt', 'Body' => 'hi']);
-
-$cmd = $s3->getCommand('GetObject', ['Bucket' => 'media', 'Key' => 'a.txt']);
-$url = (string) $s3->createPresignedRequest($cmd, '+1 hour')->getUri();
+$s3->putObject(['Bucket' => 'my-bucket', 'Key' => 'file.bin', 'Body' => fopen('file.bin', 'rb')]);
 ```
 
-### Presigned URLs
+### JavaScript AWS SDK v3
 
-Any SDK works; expiry is 1 second to 7 days (`604800 s`), verified with `iat`/`exp` and
-±900 s clock skew:
+```js
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { readFile } from "node:fs/promises";
 
-```python
-url = s3.generate_presigned_url("get_object",
-    Params={"Bucket": "media", "Key": "report.pdf"},
-    ExpiresIn=3600)
+const s3 = new S3Client({
+  region: "us-east-1",
+  endpoint: "https://your-domain.example",
+  forcePathStyle: true,
+  credentials: { accessKeyId: process.env.AWS_ACCESS_KEY_ID, secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY },
+});
+await s3.send(new PutObjectCommand({ Bucket: "my-bucket", Key: "file.bin", Body: await readFile("file.bin") }));
 ```
 
-## What behaves like AWS (and what to expect)
+### rclone
 
-- **Unsigned requests are rejected** — opening a bucket URL in a browser returns the AWS
-  `MissingSecurityHeader` error XML. That's correct S3 behavior; there is **no public /
-  anonymous access** (v1).
-- **403 before 404** — permission is checked before existence (anti-enumeration), so a
-  wrong key on an existing bucket and a wrong key on a missing bucket both give 403.
-- **Errors are AWS-shaped**: correct statuses + `Code` + `RequestId`, so boto3, rclone
-  and the AWS SDK fail with real error names (`NoSuchKey`, `BucketAlreadyExists`,
-  `SignatureDoesNotMatch`, …).
-- **Region is a label** — clients must send *a* region matching your install's setting;
-  no region pinning/geo logic exists.
-- **ETags** are real S3 format: `md5(...)` for simple PUTs, `md5(...)-N` for multipart.
-
-## Limits (defaults, editable in `config.php`)
-
-| | |
-|---|---|
-| Buckets per install | `max_buckets = 100` |
-| Single object | `max_object_bytes = 5 GiB` |
-| Multipart part | 5 MiB minimum (enforced with `EntityTooSmall`), 5 GiB max part |
-| `DeleteObjects` batch | 1000 keys per request |
-| Presigned expiry | 1 s – 604800 s (7 days) |
-
-`config.php` lives **outside** the web root (the installer prints the path; the
-dashboard shows it too). Edit it with any text editor — changes apply on the next
-request; no cache to clear.
-
-## CLI
+```ini
+[php-s3]
+type = s3
+provider = Other
+env_auth = true
+endpoint = https://your-domain.example
+region = us-east-1
+force_path_style = true
+```
 
 ```bash
-php cli/php-s3.php migrate                  # apply migrations (idempotent)
-php cli/php-s3.php doctor                   # environment / config health check
-php cli/php-s3.php gc                       # reclaim expired multipart uploads + temp files
-php cli/php-s3.php key:create --owner=1 --buckets='*' --description=ci
+rclone lsf php-s3:my-bucket
+rclone copy ./files php-s3:my-bucket/files
 ```
 
-Schedule `gc` in cron (daily is plenty) to reclaim storage from abandoned uploads.
+## S3 behavior and limits
 
-## Full API coverage
+- Requests require SigV4; unsigned browser access is rejected.
+- Region is a signing label and must match the server’s setting.
+- Path-style URLs are supported and recommended.
+- Existing API operations remain available, including ListObjects v1/v2, multipart upload, CopyObject, batch delete, presigned URLs, range reads, and streaming.
+- Default limits are `max_buckets = 100` and `max_object_bytes = 5 GiB`; multipart parts have a 5 MiB minimum except the final part.
 
-Operation-by-operation matrix with test evidence:
-**[S3 Compatibility](/docs/s3-compatibility)**.
+For the tested operation matrix, see [S3 Compatibility](/docs/s3-compatibility).
