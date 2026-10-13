@@ -230,6 +230,32 @@ and administers those resources; php-s3 does not provide hosted storage.
 - Full design rationale: **[Architecture](https://php-s3.codaipro.com/docs/architecture)** ·
   source audit of the four reference projects: **[Research](https://php-s3.codaipro.com/docs/research)**
 
+## Diagrams
+
+**Platform navigation** — user console vs admin console map, in front of the SigV4 S3 API.
+
+![Platform navigation](public/01%20%E2%80%94%20PLATFORM%20NAVIGATION.svg)
+
+**User onboarding** — register, sign in, create bucket, scoped key, configure client, upload.
+
+![User onboarding](public/02%20%E2%80%94%20USER%20ONBOARDING.svg)
+
+**Bucket management** — object browser, settings, private by default, delete only when empty.
+
+![Bucket management](public/03%20%E2%80%94%20BUCKET%20MANAGEMENT.svg)
+
+**Admin operations** — dashboard, users, storage, security, system settings.
+
+![Admin operations](public/04%20%E2%80%94%20ADMIN%20OPERATIONS.svg)
+
+**S3 authorization pipeline** — verify SigV4, resolve principal, enforce permissions, audit.
+
+![S3 authorization pipeline](public/05%20%E2%80%94%20S3%20AUTHORIZATION%20PIPELINE.svg)
+
+**Shared hosting deployment** — PHP app, MySQL, private filesystem, HTTPS domain.
+
+![Shared hosting deployment](public/06%20%E2%80%94%20SHARED%20HOSTING%20DEPLOYMENT.svg)
+
 ## Security
 
 - Strict SigV4 with **no bypass flags and no "simple auth" mode** — every S3 request signed
