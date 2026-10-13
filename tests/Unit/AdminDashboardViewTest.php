@@ -60,7 +60,8 @@ final class AdminDashboardViewTest extends TestCase
         self::assertStringContainsString('team-files', $response->body);
         self::assertStringContainsString('alice', $response->body);
         self::assertStringContainsString('200 GiB', $response->body);
-        self::assertStringNotContainsString('Create bucket', $response->body);
+        self::assertStringContainsString('href="/_admin/buckets#create-bucket">Create bucket', $response->body);
+        self::assertStringContainsString('href="/_admin/files">Upload files', $response->body);
     }
 
     public function testAdminDashboardSurfacesConfiguredCapacityWarning(): void
@@ -73,5 +74,39 @@ final class AdminDashboardViewTest extends TestCase
 
         self::assertStringContainsString('Storage capacity warning', $response->body);
         self::assertStringContainsString('at or above 90%', $response->body);
+    }
+
+    public function testAdminBucketsPageProvidesCreationAndOwnBucketFileAccess(): void
+    {
+        $response = Views::adminBuckets(
+            ['id' => 1, 'username' => 'root-admin'],
+            [
+                ['id' => 10, 'owner_id' => 1, 'name' => 'admin-files', 'username' => 'root-admin', 'objects' => 1, 'bytes' => 12, 'created_at' => '2026-10-13'],
+                ['id' => 11, 'owner_id' => 2, 'name' => 'private-user-files', 'username' => 'alice', 'objects' => 1, 'bytes' => 24, 'created_at' => '2026-10-13'],
+            ],
+            'csrf-token',
+        );
+
+        self::assertStringContainsString('name="action" value="create"', $response->body);
+        self::assertStringContainsString('href="/_admin/files?bucket=admin-files">Open files', $response->body);
+        self::assertStringNotContainsString('href="/_admin/files?bucket=private-user-files"', $response->body);
+        self::assertStringContainsString('href="/_admin/files">Open file manager', $response->body);
+    }
+
+    public function testAdminFileManagerShowsUploadAndShareActions(): void
+    {
+        $_SESSION['flash'] = 'Share link (expires in 1 hour): https://storage.example.test/photos/cat.png?X-Amz-Signature=abc';
+        $response = Views::files(
+            ['id' => 1, 'username' => 'root-admin'],
+            [['name' => 'photos']],
+            'photos',
+            [['key' => 'cat.png', 'size' => 3]],
+            'csrf-token',
+        );
+
+        self::assertStringContainsString('name="action" value="upload"', $response->body);
+        self::assertStringContainsString('Share link', $response->body);
+        self::assertStringContainsString('Anyone with this link can download the file for one hour.', $response->body);
+        self::assertStringContainsString('data-copy-url=', $response->body);
     }
 }

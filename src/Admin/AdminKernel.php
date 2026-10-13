@@ -792,6 +792,7 @@ final class AdminKernel
         $this->requireCsrf($request);
         $input = $this->parseForm($request);
         $action = (string) ($input['action'] ?? '');
+        $createdBucket = null;
         $ip = $request->remoteAddr;
         $ua = $request->header('user-agent');
 
@@ -803,6 +804,7 @@ final class AdminKernel
                 @mkdir($this->storage->root() . '/buckets/' . $name, 0750, true);
                 $this->audit()->record('bucket.create', $user['id'], $user['username'], ['bucket' => $name], $ip, $ua);
                 $_SESSION['flash'] = "Bucket '{$name}' created.";
+                $createdBucket = $name;
             } elseif ($action === 'delete') {
                 $name = trim((string) ($input['name'] ?? ''));
                 $row = $this->buckets->findByName($name);
@@ -824,7 +826,12 @@ final class AdminKernel
             $_SESSION['flash'] = $e->awsMessage;
         }
 
-        return Response::redirect(302, $user['role'] === 'admin' ? '/_admin' : '/_console/buckets');
+        if ($createdBucket !== null) {
+            $base = $user['role'] === 'admin' ? '/_admin/files' : '/_console/files';
+            return Response::redirect(303, $base . '?bucket=' . rawurlencode($createdBucket));
+        }
+
+        return Response::redirect(303, $user['role'] === 'admin' ? '/_admin/buckets' : '/_console/buckets');
     }
 
     private function fileAction(Request $request, array $user): Response

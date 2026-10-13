@@ -387,7 +387,7 @@ CSS;
         <section class="page-head" aria-labelledby="overview-title">
             <div><p class="kicker">php-s3 administration</p><h1 id="overview-title">Admin dashboard</h1>
             <p class="muted">System-wide activity and capacity at a glance. Signed in as <strong>' . self::e((string) $user['username']) . '</strong>.</p></div>
-            <div class="page-actions"><a class="btn" href="/_admin/users">Manage users</a><a class="btn secondary" href="/_admin/buckets">All buckets</a></div>
+            <div class="page-actions"><a class="btn" href="/_admin/buckets#create-bucket">Create bucket</a><a class="btn secondary" href="/_admin/files">Upload files</a><a class="btn secondary" href="/_admin/users">Manage users</a><a class="btn secondary" href="/_admin/buckets#all-buckets">All buckets</a></div>
         </section>
         ' . $warning . '
         <section class="metric-grid" aria-label="Storage totals">
@@ -404,6 +404,7 @@ CSS;
             <aside>
                 <section class="panel"><h2>Admin shortcuts</h2><div class="action-list">
                     <a class="action-link" href="/_admin/users"><span>Create or manage users</span><span>Open →</span></a>
+                    <a class="action-link" href="/_admin/files"><span>Browse files and create share links</span><span>Open →</span></a>
                     <a class="action-link" href="/_admin/storage"><span>Review storage and quotas</span><span>Open →</span></a>
                     <a class="action-link" href="/_admin/security"><span>Review credentials</span><span>Open →</span></a>
                     <a class="action-link" href="/_admin/audit"><span>Inspect audit logs</span><span>Open →</span></a>
@@ -438,7 +439,7 @@ CSS;
                 . '<td class="num">' . self::humanBytes((int) $object['size']) . '</td><td class="actions">'
                 . '<form method="post" action="/_admin/files"><input type="hidden" name="_csrf" value="' . self::e($csrf) . '">'
                 . '<input type="hidden" name="bucket" value="' . self::e($selected) . '"><input type="hidden" name="key" value="' . self::e($key) . '">'
-                . '<button class="secondary small" name="action" value="share" type="submit">Share</button></form>'
+                . '<button class="secondary small" name="action" value="share" type="submit">Share link</button></form>'
                 . '<form method="post" action="/_admin/files"><input type="hidden" name="_csrf" value="' . self::e($csrf) . '">'
                 . '<input type="hidden" name="bucket" value="' . self::e($selected) . '"><input type="hidden" name="key" value="' . self::e($key) . '">'
                 . '<button class="danger small" name="action" value="delete" type="submit" onclick="return confirm(\'Delete this file?\')">Delete</button></form>'
@@ -451,8 +452,7 @@ CSS;
         $flashHtml = '';
         if (is_string($flash) && str_starts_with($flash, 'Share link (expires in 1 hour): ')) {
             $url = substr($flash, strlen('Share link (expires in 1 hour): '));
-            $flashHtml = '<div class="flash">Share link (expires in 1 hour): <a href="' . self::e($url) . '" target="_blank" rel="noopener">'
-                . self::e($url) . '</a> <button class="secondary small" type="button" data-copy-url="' . self::e($url) . '">Copy link</button></div>';
+            $flashHtml = '<div class="flash"><strong>Share link</strong><p>Anyone with this link can download the file for one hour.</p><div class="row"><input aria-label="Share link" readonly value="' . self::e($url) . '"><button class="secondary" type="button" data-copy-url="' . self::e($url) . '">Copy link</button><a class="btn secondary" href="' . self::e($url) . '" target="_blank" rel="noopener">Open link</a></div></div>';
         } elseif ($flash) {
             $flashHtml = '<div class="flash">' . self::e((string) $flash) . '</div>';
         }
@@ -465,7 +465,7 @@ CSS;
             . '<button type="submit" class="btn">Upload</button></form></div>';
 
         $html = self::layout('Files — php-s3', $flashHtml . '
-        <div class="panel command"><div class="command-head"><h1>Files</h1><p class="hint">Upload, delete, and create temporary download links.</p></div>
+        <div class="panel command"><div class="command-head"><h1>Files</h1><p class="hint">Upload files, then create a one-hour direct download link to share.</p></div>
             <form method="get" action="/_admin/files" class="command-form"><select name="bucket" aria-label="Bucket">' . $options . '</select><button class="secondary" type="submit">Open bucket</button></form>
         </div>' . $upload . '
         <div class="panel"><h2>Objects</h2><div class="table-scroll"><table><thead><tr><th>File</th><th class="num">Size</th><th></th></tr></thead><tbody>' . $rows . '</tbody></table></div></div>
@@ -710,7 +710,7 @@ CSS;
         $sharePrefix = 'Share link (expires in 1 hour): ';
         if (is_string($flash) && str_starts_with($flash, $sharePrefix)) {
             $url = substr($flash, strlen($sharePrefix));
-            $flashHtml = '<div class="flash"><p>Private download link · expires in one hour</p><div class="row"><input aria-label="Share link" readonly value="' . self::e($url) . '"><button type="button" class="secondary" data-copy-url="' . self::e($url) . '">Copy link</button><a class="btn secondary" href="' . self::e($url) . '" target="_blank" rel="noopener">Open</a></div></div>';
+            $flashHtml = '<div class="flash"><strong>Share link</strong><p>Anyone with this link can download the file for one hour.</p><div class="row"><input aria-label="Share link" readonly value="' . self::e($url) . '"><button type="button" class="secondary" data-copy-url="' . self::e($url) . '">Copy link</button><a class="btn secondary" href="' . self::e($url) . '" target="_blank" rel="noopener">Open link</a></div></div>';
         } elseif ($flash) {
             $flashHtml = '<div class="flash">' . self::e((string) $flash) . '</div>';
         }
@@ -728,7 +728,7 @@ CSS;
             $rows .= '<tr><td class="mono">' . self::e($name) . '</td><td class="num">' . self::humanBytes((int) $o['size']) . '</td><td class="mono muted">' . self::e((string) ($o['updated_at'] ?? '')) . '</td><td class="actions">'
                 . '<button type="button" class="secondary small" data-copy-path="' . self::e($key) . '">Copy path</button> <button type="button" class="secondary small" data-copy-object="' . self::e($key) . '">Copy object</button>'
                 . '<form method="post" action="/_console/files"><input type="hidden" name="_csrf" value="' . self::e($csrf) . '"><input type="hidden" name="bucket" value="' . self::e($selected) . '"><input type="hidden" name="prefix" value="' . self::e($prefix) . '"><input type="hidden" name="key" value="' . self::e($key) . '"><button class="secondary small" name="action" value="download">Download</button></form>'
-                . '<form method="post" action="/_console/files"><input type="hidden" name="_csrf" value="' . self::e($csrf) . '"><input type="hidden" name="bucket" value="' . self::e($selected) . '"><input type="hidden" name="prefix" value="' . self::e($prefix) . '"><input type="hidden" name="key" value="' . self::e($key) . '"><button class="secondary small" name="action" value="share">Share</button></form>'
+                . '<form method="post" action="/_console/files"><input type="hidden" name="_csrf" value="' . self::e($csrf) . '"><input type="hidden" name="bucket" value="' . self::e($selected) . '"><input type="hidden" name="prefix" value="' . self::e($prefix) . '"><input type="hidden" name="key" value="' . self::e($key) . '"><button class="secondary small" name="action" value="share">Share link</button></form>'
                 . '<form method="post" action="/_console/files"><input type="hidden" name="_csrf" value="' . self::e($csrf) . '"><input type="hidden" name="bucket" value="' . self::e($selected) . '"><input type="hidden" name="prefix" value="' . self::e($prefix) . '"><input type="hidden" name="key" value="' . self::e($key) . '"><button class="danger small" name="action" value="delete" onclick="return confirm(\'Delete this object?\')">Delete</button></form>'
                 . '</td></tr>';
         }
@@ -782,8 +782,26 @@ CSS;
     {
         $flash = self::consumeFlash();
         $rows = '';
-        foreach ($buckets as $b) $rows .= '<tr><td class="mono">' . self::e((string) $b['name']) . '</td><td>' . self::e((string) $b['username']) . '</td><td class="num">' . (int) $b['objects'] . '</td><td class="num">' . self::humanBytes((int) $b['bytes']) . '</td><td>' . self::e((string) $b['created_at']) . '</td><td><form method="post" action="/_admin/buckets"><input type="hidden" name="_csrf" value="' . self::e($csrf) . '"><input type="hidden" name="id" value="' . (int) $b['id'] . '"><button class="danger small" onclick="return confirm(\'Delete this empty bucket?\')">Delete empty bucket</button></form></td></tr>';
-        return Response::html(200, self::layout('All buckets — php-s3', $flash . '<div class="panel"><h1>All buckets</h1><div class="table-scroll"><table><thead><tr><th>Bucket</th><th>Owner</th><th class="num">Objects</th><th class="num">Usage</th><th>Created</th><th></th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="6" class="empty">No buckets.</td></tr>') . '</tbody></table></div><p class="hint">Administrators can remove empty buckets. Objects must be removed from the owner’s account first.</p></div>'));
+        foreach ($buckets as $b) {
+            $openFiles = (int) $b['owner_id'] === (int) $admin['id']
+                ? '<a href="/_admin/files?bucket=' . rawurlencode((string) $b['name']) . '">Open files</a>'
+                : '';
+            $rows .= '<tr><td class="mono">' . self::e((string) $b['name']) . '</td><td>' . self::e((string) $b['username']) . '</td>'
+                . '<td class="num">' . (int) $b['objects'] . '</td><td class="num">' . self::humanBytes((int) $b['bytes']) . '</td>'
+                . '<td>' . self::e((string) $b['created_at']) . '</td><td class="actions">' . $openFiles
+                . '<form method="post" action="/_admin/buckets"><input type="hidden" name="_csrf" value="' . self::e($csrf) . '">'
+                . '<input type="hidden" name="id" value="' . (int) $b['id'] . '"><button class="danger small" onclick="return confirm(\'Delete this empty bucket?\')">Delete empty bucket</button></form></td></tr>';
+        }
+        $createForm = '<div class="panel command" id="create-bucket"><h1>My storage buckets</h1>'
+            . '<p class="hint">Create a bucket for your admin account, then upload files and create share links in the file manager.</p>'
+            . '<form method="post" action="/_admin/buckets" class="command-form"><input type="hidden" name="_csrf" value="' . self::e($csrf) . '">'
+            . '<input type="hidden" name="action" value="create"><input name="name" class="mono" placeholder="my-bucket-name" pattern="[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]" required aria-label="Bucket name">'
+            . '<button type="submit">Create bucket</button><a class="btn secondary" href="/_admin/files">Open file manager</a></form></div>';
+        $body = $flash . $createForm . '<div class="panel" id="all-buckets"><div class="section-head"><h2>All buckets</h2><a href="/_admin/files">Open file manager</a></div>'
+            . '<div class="table-scroll"><table><thead><tr><th>Bucket</th><th>Owner</th><th class="num">Objects</th><th class="num">Usage</th><th>Created</th><th>Actions</th></tr></thead><tbody>'
+            . ($rows ?: '<tr><td colspan="6" class="empty">No buckets yet. Create your first bucket above.</td></tr>')
+            . '</tbody></table></div><p class="hint">You can open files for buckets owned by your admin account. Other users’ files stay private to their accounts.</p></div>';
+        return Response::html(200, self::layout('All buckets — php-s3', $body));
     }
 
     public static function adminStorage(array $admin, array $usage, ?int $capacity, string $csrf): Response
@@ -859,7 +877,7 @@ CSS;
             if (($_SESSION['role'] ?? 'admin') === 'admin') {
                 $nav = '<a href="/_admin">Dashboard</a><a href="/_admin/users">Users</a>'
                     . '<a href="/_admin/buckets">All buckets</a><a href="/_admin/storage">Storage</a>'
-                    . '<a href="/_admin/security">Security</a><a href="/_admin/audit">Audit logs</a>'
+                    . '<a href="/_admin/files">Files</a><a href="/_admin/security">Security</a><a href="/_admin/audit">Audit logs</a>'
                     . '<a href="/_admin/settings">Settings</a>';
             } else {
                 $home = '/_console';

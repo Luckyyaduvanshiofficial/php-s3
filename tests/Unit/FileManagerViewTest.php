@@ -45,7 +45,8 @@ final class FileManagerViewTest extends TestCase
 
         self::assertSame(200, $response->status);
         self::assertStringContainsString('name="action" value="share"', $response->body);
-        self::assertStringContainsString('Private download link · expires in one hour', $response->body);
+        self::assertStringContainsString('Anyone with this link can download the file for one hour.', $response->body);
+        self::assertStringContainsString('Share link', $response->body);
         self::assertStringContainsString('data-copy-url=', $response->body);
         self::assertStringContainsString('X-Amz-Signature=abc', $response->body);
     }
