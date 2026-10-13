@@ -8,6 +8,19 @@ tableOfContents: false
 
 Notable changes land here, newest first. The structure follows the repository history, so every entry maps to real commits.
 
+## v0.5.4 · 2026-10-13 · Clearer bucket creation guidance
+
+- **Changed** admin and user bucket forms explain the lowercase naming rules before submission and prevent mobile auto-capitalization.
+- **Tests** 239 PHPUnit tests and 450 assertions pass; PHP syntax checks pass.
+
+## 2026-10-13 · Admin workflow and release checks
+
+- **Added** dashboard actions to create buckets, upload files, and create access keys.
+- **Changed** creating a bucket opens the file manager with that bucket selected.
+- **Added** clear share-link actions with copy/open controls and the one-hour expiry explained.
+- **Added** a combined test command and configurable S3 API smoke test.
+- **Tests** 239 PHPUnit tests and 448 assertions pass; PHP syntax checks pass.
+
 ## 2026-10-01 · Security audit fixes and this website
 
 - **Security** request bodies are capped while streaming, so a chunked upload without Content-Length can no longer fill the disk; XML bodies are capped before parsing.

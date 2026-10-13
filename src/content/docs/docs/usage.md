@@ -25,7 +25,7 @@ Buckets are private. The web console checks ownership on every request, and the 
 
 Administrators assign a quota when creating a user and can update it later. S3 PUT, CopyObject, multipart part uploads/completion, and browser uploads reserve quota before writing. An upload that cannot reserve its required space is rejected before replacing existing data. Replacement objects are charged by their growth over the current object size. Expired reservations are ignored for enforcement and removed by `gc`.
 
-Share links are signed download URLs created with an enabled, read-authorized API key scoped to the selected bucket. They expire after one hour. Sharing a link grants temporary access to that object; the bucket itself stays private.
+Share links are direct, signed download URLs. Before creating one, make sure the account has an enabled API key with read permission for that bucket. Select **Share link** beside an object, then copy or open the URL. Anyone who has the URL can download that object until the link expires after one hour. The bucket itself stays private.
 
 The capacity estimate in administrator settings is only a warning threshold. PHP’s filesystem free-space value does not represent a shared-hosting account’s allocated storage.
 
@@ -35,7 +35,9 @@ The capacity estimate in administrator settings is only a warning threshold. PHP
 |---|---|
 | **Dashboard** | Account, bucket, object, quota allocation, actual storage, and capacity indicators |
 | **Users** | Create users, assign `admin` or `user`, activate/suspend/disable accounts, set quotas, review usage, and revoke sessions |
-| **All Buckets** | Review bucket owners and usage; delete empty buckets |
+| **All Buckets** | Create buckets for the admin account; review all bucket owners and usage; open the admin’s files; delete empty buckets |
+| **Files** | Upload, download, delete, and create one-hour share links for admin-owned buckets |
+| **Access Keys** | Create the admin’s S3 keys and choose bucket restrictions and permissions |
 | **Storage** | Compare allocated quotas, actual bytes, and active reservations |
 | **Security** | Review API credential metadata and revoke keys |
 | **Audit Logs** | Review login failures, policy changes, key changes, storage failures, and destructive actions |

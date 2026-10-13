@@ -37,16 +37,11 @@ any hPanel plan with a domain and MySQL.
 
 ## 3. Upload the files
 
-1. **File Manager** → open `public_html` for your domain
-2. On your machine, zip the four items **at the archive root**:
-
-   ```bash
-   zip php-s3.zip index.php .htaccess src/ cli/ -r
-   # (index.php and .htaccess are the two files inside the repo's public/ folder)
-   ```
-
-3. Upload `php-s3.zip` → right-click → **Extract** into `public_html`
-4. If you don't see `.htaccess`, enable **Settings → Show hidden files** in File Manager —
+1. Download the latest `php-s3-vX.Y.Z.zip` from the [GitHub releases page](https://github.com/Luckyyaduvanshiofficial/php-s3/releases).
+2. In **File Manager**, open `public_html` for your domain.
+3. Upload the ZIP → right-click → **Extract** into `public_html`.
+4. Confirm `index.php`, `.htaccess`, `src/`, and `cli/` are directly inside `public_html`, not inside a new subfolder.
+5. If you don't see `.htaccess`, enable **Settings → Show hidden files** in File Manager —
    it must exist or routing/auth headers break (403/404, signature errors)
 
 Result inside `public_html`: `index.php`, `.htaccess`, `src/`, `cli/`. Nothing else.
@@ -65,14 +60,24 @@ The installer connects to MySQL at `127.0.0.1`, creates a data directory outside
 `public_html`, writes `config.php` beside `public_html`, applies the schema, and locks
 itself. You do not need to enter a DSN, region, base domain, or data path.
 
-## 5. Log in and provision storage
+## 5. Create a bucket, upload, and share a file
 
-1. Sign in at `https://your-domain.com/_admin/login`
-2. In the administrator console, open **Users** and create an account with a quota
-3. The user signs in at the same login page, creates a private bucket, and uploads files
-4. Create a scoped API key in **Access Keys**. Copy its secret once when it is shown
-5. **Connect** displays the endpoint, region, bucket, access key ID, and S3 client examples;
-   old secrets are never shown again
+1. Sign in at `https://your-domain.com/_admin/login`.
+2. On **Dashboard**, select **Create bucket**. Use a unique name with 3–63 lowercase
+   letters, numbers, dots, or hyphens. The name must start and end with a letter or number.
+3. Select **Create bucket**. php-s3 opens **Files** with the new bucket selected.
+4. Select **Create access key** on **Dashboard** or open **Access keys** in the menu.
+   Give it a name, allow access to the new bucket, and select read-only or read/write.
+   Copy the secret when it appears; it is shown only once. A key with read access is
+   required to create share links.
+5. In **Files**, choose a file and select **Upload**. It appears in the objects list.
+6. Select **Share link** beside the file, then **Copy link**. Anyone with this direct link
+   can download the file for one hour; the bucket itself remains private.
+
+**Connect** shows the endpoint, region, key ID, and S3 client examples.
+
+For separate user accounts, open **Users**, create the account, and assign a quota. The
+user signs in at the same login page and gets their own private buckets and file manager.
 
 ## 6. Second instance (separate domain/subdomain)
 
@@ -88,10 +93,22 @@ Two installs never share config, keys, or data — isolating the demo is the poi
 
 ## Updating
 
-1. Back up the database.
-2. Upload the new `index.php`, `.htaccess`, `src/`, and `cli/` (overwrite the app files).
-3. Run `php cli/php-s3.php migrate` (it is safe to re-run).
-4. Never delete `config.php` or the data root during an update.
+1. Back up the MySQL database, `config.php`, and the data directory.
+2. Download the [latest php-s3 release](https://github.com/Luckyyaduvanshiofficial/php-s3/releases).
+3. Upload its ZIP to the existing `public_html` and extract it there, allowing the new
+   `index.php`, `.htaccess`, `src/`, and `cli/` files to overwrite the old application files.
+4. Do not delete `public_html`, `config.php`, the database, or the data directory. Existing
+   buckets and objects stay in place when only the application files are replaced.
+5. In SSH, run the migration and verify the installation:
+
+   ```bash
+   cd /home/uXXXXXXXX/domains/your-domain.com/public_html
+   php cli/php-s3.php migrate
+   php cli/php-s3.php doctor
+   ```
+
+`migrate` is safe to run again. Keep the backup until sign-in, bucket browsing, and an
+upload have been checked.
 
 ## Hostinger-specific notes
 

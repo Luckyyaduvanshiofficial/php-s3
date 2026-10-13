@@ -49,9 +49,18 @@ Sign in as the administrator. Open **Users** to create a user and assign a stora
 
 A user signs in at `/_admin/login` and is sent to the user console. From there they can create a private bucket, upload files, view usage, and create scoped API keys. Administrators use the same login and are sent to the administrator console.
 
+The administrator can also store files in the admin account:
+
+1. Select **Create bucket** on the **Dashboard**.
+2. Enter a unique bucket name using 3–63 lowercase letters, numbers, dots, or hyphens. It must start and end with a letter or number.
+3. Select **Create bucket**. The file manager opens with that bucket selected.
+4. Open **Access keys** or select **Create access key** on the dashboard. Name the key, allow it to read this bucket, and select read-only or read/write. Copy the secret when it appears; it is shown only once. Share links need an enabled key with read permission for this bucket.
+5. In **Files**, choose a file and select **Upload**.
+6. Select **Share link** beside the file, then copy the generated URL. Anyone with the URL can download that file for one hour; the bucket remains private.
+
 ## 5. Connect an S3 client
 
-In the user console, create an API key with a name, one or more owned buckets, and read-only or read/write permission. Copy the secret when it appears; php-s3 shows it only once. **Connect** provides the endpoint, region, bucket, key ID, and client examples. Configure path-style addressing.
+In the user console, create an API key with a name, one or more owned buckets, and read-only or read/write permission. Administrators can create their own key from **Create access key** or **Access keys**. Copy the secret when it appears; php-s3 shows it only once. **Connect** provides the endpoint, region, bucket, key ID, and client examples. Configure path-style addressing.
 
 ```bash
 export AWS_ACCESS_KEY_ID='AKIA...'
@@ -63,7 +72,7 @@ See [Usage](/docs/usage) for boto3, PHP SDK, JavaScript SDK, and rclone setup.
 
 ## Upgrade an existing installation
 
-Before replacing application files, take a database backup and keep the existing data directory and `config.php` in place. Upload the new release, then run:
+Before replacing application files, back up the database, `config.php`, and the data directory. Upload and extract the new release into the existing document root, overwriting application files only. Do not delete the existing installation, database, `config.php`, or data directory. Existing buckets and objects remain in place. Then run:
 
 ```bash
 php cli/php-s3.php migrate
