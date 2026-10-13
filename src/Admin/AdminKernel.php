@@ -191,7 +191,7 @@ final class AdminKernel
 
             if ($path === '/_admin/keys') {
                 if ($method === 'GET') {
-                    return Views::keys($user, $this->accessKeys->allForOwner($user['id']), $this->csrf());
+                    return Views::keys($user, $this->accessKeys->allForOwner($user['id']), $this->csrf(), false, $this->connectionBuckets((int) $user['id']));
                 }
                 if ($method === 'POST') {
                     return $this->keyAction($request, $user);
@@ -210,13 +210,21 @@ final class AdminKernel
 
             if ($path === '/_admin/files') {
                 if ($method === 'GET') {
+                    $owned = $this->buckets->allForOwner((int) $user['id']);
                     $bucketName = (string) ($request->query()['bucket'] ?? '');
+                    if ($bucketName === '' && count($owned) === 1) {
+                        $bucketName = (string) $owned[0]['name'];
+                    }
+                    $prefix = (string) ($request->query()['prefix'] ?? '');
                     $bucketRow = $bucketName === '' ? null : $this->ownedBucket($bucketName, (int) $user['id']);
-                    $objects = $bucketRow === null
-                        ? []
-                        : $this->objects->list((int) $bucketRow['id'], '', '', 1000, null)['objects'];
+                    if ($bucketRow !== null && $prefix !== '') {
+                        KeySanitizer::validate(rtrim($prefix, '/'));
+                    }
+                    $listing = $bucketRow === null
+                        ? ['objects' => [], 'prefixes' => []]
+                        : $this->objects->list((int) $bucketRow['id'], $prefix, '/', 1000, null);
 
-                    return Views::files($user, $this->buckets->allForOwner((int) $user['id']), $bucketName, $objects, $this->csrf());
+                    return Views::files($user, $owned, $bucketName, $listing['objects'], $this->csrf(), $prefix, $listing['prefixes']);
                 }
                 if ($method === 'POST') {
                     return $this->fileAction($request, $user);
@@ -264,7 +272,11 @@ final class AdminKernel
                 return $this->fileAction($request, $user);
             }
             $query = $request->query();
+            $owned = $this->buckets->allForOwner((int) $user['id']);
             $bucketName = (string) ($query['bucket'] ?? '');
+            if ($bucketName === '' && count($owned) === 1) {
+                $bucketName = (string) $owned[0]['name'];
+            }
             $prefix = (string) ($query['prefix'] ?? '');
             $bucketRow = $bucketName === '' ? null : $this->ownedBucket($bucketName, (int) $user['id']);
             if ($bucketRow !== null && $prefix !== '') {
@@ -276,7 +288,7 @@ final class AdminKernel
 
             return Views::consoleFiles(
                 $user,
-                $this->buckets->allForOwner((int) $user['id']),
+                $owned,
                 $bucketName,
                 $prefix,
                 $listing['objects'],
@@ -526,6 +538,7 @@ final class AdminKernel
 
         switch ($action) {
             case 'create':
+                try {
                 $rawAllowed = $input['allowed_buckets'] ?? '';
                 if (is_array($rawAllowed)) {
                     $allowedList = array_values(array_unique(array_filter(array_map(
@@ -567,14 +580,19 @@ final class AdminKernel
                 ], $ip, $ua);
                 $_SESSION['flash'] = 'Created — copy the secret now, it is never shown again: '
                     . $created['access_key_id'] . ' / ' . $created['secret_access_key'];
+                } catch (\InvalidArgumentException $e) {
+                    $_SESSION['flash'] = $e->getMessage();
+                }
                 break;
 
             case 'toggle':
-                $this->accessKeys->setEnabled((int) ($input['id'] ?? 0), $user['id'], ($input['enabled'] ?? '0') === '1');
+                $enabled = ($input['enabled'] ?? '0') === '1';
+                $this->accessKeys->setEnabled((int) ($input['id'] ?? 0), $user['id'], $enabled);
                 $this->audit()->record('key.toggle', $user['id'], $user['username'], [
                     'id' => (int) ($input['id'] ?? 0),
-                    'enabled' => ($input['enabled'] ?? '0') === '1',
+                    'enabled' => $enabled,
                 ], $ip, $ua);
+                $_SESSION['flash'] = $enabled ? 'Key enabled.' : 'Key disabled.';
                 break;
 
             case 'delete':
@@ -582,6 +600,7 @@ final class AdminKernel
                 $this->audit()->record('key.revoke', $user['id'], $user['username'], [
                     'id' => (int) ($input['id'] ?? 0),
                 ], $ip, $ua);
+                $_SESSION['flash'] = 'Key revoked.';
                 break;
 
             default:
@@ -615,7 +634,7 @@ final class AdminKernel
                     'role' => 'user',
                     'quota_bytes' => $quota,
                 ], $ip, $ua);
-                $_SESSION['flash'] = 'User created. Give them the username and temporary password through a private channel.';
+                $_SESSION['flash'] = "User '{$username}' created. Give them the username and temporary password through a private channel.";
             } elseif (($input['action'] ?? '') === 'policy') {
                 $id = (int) ($input['id'] ?? 0);
                 $role = (string) ($input['role'] ?? 'user');
@@ -632,7 +651,7 @@ final class AdminKernel
                     'status' => $status,
                     'quota_bytes' => $quota,
                 ], $ip, $ua);
-                $_SESSION['flash'] = 'Account policy saved.';
+                $_SESSION['flash'] = "Account policy saved for '" . ($target['username'] ?? ('id ' . $id)) . "'.";
             } elseif (($input['action'] ?? '') === 'revoke_sessions') {
                 $id = (int) ($input['id'] ?? 0);
                 (new SessionRepository($this->db))->revokeAll($id);
@@ -849,8 +868,8 @@ final class AdminKernel
             $action = (string) ($input['action'] ?? '');
             $key = trim((string) ($input['key'] ?? ''));
             if ($action === 'upload') {
-                $this->uploadFile($request, $bucket, $bucketName, (string) ($input['prefix'] ?? ''), (int) $user['id']);
-                $_SESSION['flash'] = 'File uploaded.';
+                $uploadedKey = $this->uploadFile($request, $bucket, $bucketName, (string) ($input['prefix'] ?? ''), (int) $user['id']);
+                $_SESSION['flash'] = 'File uploaded: ' . $uploadedKey . ' — use View to open it or Share link to get a download URL.';
             } elseif ($action === 'delete') {
                 KeySanitizer::validate($key);
                 $storagePath = $this->quota === null
@@ -924,7 +943,7 @@ final class AdminKernel
         return Response::redirect(303, $base . '?bucket=' . rawurlencode($bucketName) . '&prefix=' . rawurlencode($prefix));
     }
 
-    private function uploadFile(Request $request, array $bucket, string $bucketName, string $prefix = '', ?int $ownerId = null): void
+    private function uploadFile(Request $request, array $bucket, string $bucketName, string $prefix = '', ?int $ownerId = null): string
     {
         $file = $request->uploadedFile('file');
         if ($file === null || $file['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
@@ -982,6 +1001,8 @@ final class AdminKernel
             $this->storage->delete($bucketName, (string) $previous['storage_path']);
         }
         if ($ownerId !== null) { $this->releaseObjectQuota($ownerId, $reservationId); }
+
+        return $key;
     }
 
     private function ownedBucket(string $name, int $ownerId): ?array

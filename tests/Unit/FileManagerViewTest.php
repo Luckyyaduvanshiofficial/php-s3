@@ -51,6 +51,78 @@ final class FileManagerViewTest extends TestCase
         self::assertStringContainsString('X-Amz-Signature=abc', $response->body);
     }
 
+    public function testAdminFileManagerOffersViewShareDeleteAndFilter(): void
+    {
+        $_SESSION = ['user_id' => 1, 'role' => 'admin', 'csrf' => 'csrf-token'];
+        $response = Views::files(
+            ['id' => 1, 'username' => 'root-admin'],
+            [['name' => 'photos']],
+            'photos',
+            [['key' => 'cat.png', 'size' => 3]],
+            'csrf-token',
+        );
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('name="action" value="download"', $response->body);
+        self::assertStringContainsString('name="action" value="share"', $response->body);
+        self::assertStringContainsString('name="action" value="delete"', $response->body);
+        self::assertStringContainsString('id="filter"', $response->body);
+        self::assertStringContainsString('target="_blank"', $response->body);
+    }
+
+    public function testAdminFileManagerBrowsesFoldersWithBreadcrumbs(): void
+    {
+        $_SESSION = ['user_id' => 1, 'role' => 'admin', 'csrf' => 'csrf-token'];
+        $response = Views::files(
+            ['id' => 1, 'username' => 'root-admin'],
+            [['name' => 'photos']],
+            'photos',
+            [['key' => 'albums/2024/beach.png', 'size' => 5]],
+            'csrf-token',
+            'albums/2024/',
+            ['albums/2024/summer/'],
+        );
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('Parent folder', $response->body);
+        self::assertStringContainsString('prefix=albums%2F2024%2Fsummer%2F', $response->body);
+        self::assertStringContainsString('>summer/</a>', $response->body);
+        self::assertStringContainsString('>beach.png</td>', $response->body);
+        self::assertStringContainsString('name="prefix" value="albums/2024/"', $response->body);
+        self::assertStringNotContainsString('>albums/2024/beach.png</td>', $response->body);
+    }
+
+    public function testConsoleLabelsServerSideCopyAsDuplicate(): void
+    {
+        $response = Views::consoleFiles(
+            ['id' => 9, 'username' => 'owner', 'role' => 'user'],
+            [['name' => 'photos']],
+            'photos',
+            '',
+            [['key' => 'cat.png', 'size' => 3, 'updated_at' => '2026-10-13 10:00:00']],
+            [],
+            'csrf-token',
+        );
+
+        self::assertStringContainsString('>Duplicate<', $response->body);
+        self::assertStringNotContainsString('>Copy object<', $response->body);
+    }
+
+    public function testConsoleFilesWithoutBucketsOffersCreation(): void
+    {
+        $response = Views::consoleFiles(
+            ['id' => 9, 'username' => 'owner', 'role' => 'user'],
+            [],
+            '',
+            '',
+            [],
+            [],
+            'csrf-token',
+        );
+
+        self::assertStringContainsString('Create your first bucket', $response->body);
+    }
+
     public function testConsoleOffersSystemLightAndDarkThemes(): void
     {
         $response = Views::consoleFiles(

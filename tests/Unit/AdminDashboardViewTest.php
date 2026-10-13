@@ -92,6 +92,7 @@ final class AdminDashboardViewTest extends TestCase
         self::assertStringContainsString('3–63 lowercase letters, numbers, dots, or hyphens', $response->body);
         self::assertStringContainsString('autocapitalize="none"', $response->body);
         self::assertStringContainsString('href="/_admin/files?bucket=admin-files">Open files', $response->body);
+        self::assertStringContainsString('href="/_admin/files?bucket=admin-files">admin-files</a>', $response->body);
         self::assertStringNotContainsString('href="/_admin/files?bucket=private-user-files"', $response->body);
         self::assertStringContainsString('href="/_admin/files">Open file manager', $response->body);
     }
@@ -120,5 +121,148 @@ final class AdminDashboardViewTest extends TestCase
         self::assertStringContainsString('href="/_admin/keys">Access keys', $response->body);
         self::assertStringContainsString('<h2>Create API key</h2>', $response->body);
         self::assertStringContainsString('<button type="submit">Create key</button>', $response->body);
+    }
+
+    public function testNewKeySecretRendersWithCopyButtons(): void
+    {
+        $_SESSION['flash'] = 'Created — copy the secret now, it is never shown again: AKIATESTKEY0001 / super-secret-value';
+        $response = Views::keys(
+            ['id' => 1, 'username' => 'root-admin', 'role' => 'admin'],
+            [['id' => 7, 'access_key_id' => 'AKIATESTKEY0001', 'description' => 'app', 'allowed_buckets' => null, 'permissions' => ['read', 'write'], 'enabled' => 1, 'created_at' => '2026-10-13', 'last_used_at' => 'never']],
+            'csrf-token',
+        );
+
+        self::assertStringContainsString('id="f-new-akid"', $response->body);
+        self::assertStringContainsString('id="f-new-secret"', $response->body);
+        self::assertStringContainsString('data-copy="f-new-akid"', $response->body);
+        self::assertStringContainsString('data-copy="f-new-secret"', $response->body);
+        self::assertStringContainsString('value="AKIATESTKEY0001"', $response->body);
+        self::assertStringContainsString('value="super-secret-value"', $response->body);
+        self::assertStringContainsString('data-copy-text="AKIATESTKEY0001"', $response->body);
+    }
+
+    public function testAdminNavAndDashboardExposeConnectPage(): void
+    {
+        $keys = Views::keys(['id' => 1, 'username' => 'root-admin', 'role' => 'admin'], [], 'csrf-token');
+
+        self::assertStringContainsString('href="/_admin/connect">Connect', $keys->body);
+
+        $dashboard = Views::dashboard(['id' => 1, 'username' => 'root-admin'], [], []);
+
+        self::assertStringContainsString('href="/_admin/connect"><span>Connect an application</span>', $dashboard->body);
+    }
+
+    public function testAdminConnectIncludesSdkExamples(): void
+    {
+        $response = Views::connect(
+            ['id' => 1, 'username' => 'root-admin'],
+            [],
+            [],
+            'https://s3.example.com',
+            'us-east-1',
+        );
+
+        self::assertStringContainsString('SDK examples', $response->body);
+        self::assertStringContainsString('rclone', $response->body);
+        self::assertStringContainsString('boto3', $response->body);
+    }
+
+    public function testConsoleConnectKeepsExamplesAndConsoleLinks(): void
+    {
+        $response = Views::consoleConnect(
+            ['id' => 9, 'username' => 'owner', 'role' => 'user'],
+            [],
+            [],
+            'https://s3.example.com',
+            'us-east-1',
+        );
+
+        self::assertStringContainsString('SDK examples', $response->body);
+        self::assertStringContainsString('href="/_console/keys"', $response->body);
+        self::assertStringNotContainsString('href="/_admin/keys"', $response->body);
+    }
+
+    public function testAdminKeyFormSuggestsOwnedBucketNames(): void
+    {
+        $response = Views::keys(
+            ['id' => 1, 'username' => 'root-admin', 'role' => 'admin'],
+            [],
+            'csrf-token',
+            false,
+            ['photos', 'backups'],
+        );
+
+        self::assertStringContainsString('id="bucket-suggest"', $response->body);
+        self::assertStringContainsString('<option value="photos">', $response->body);
+    }
+
+    public function testConsoleKeyFormWithoutBucketsPointsToBucketCreation(): void
+    {
+        $response = Views::keys(
+            ['id' => 9, 'username' => 'owner', 'role' => 'user'],
+            [],
+            'csrf-token',
+            true,
+            [],
+        );
+
+        self::assertStringContainsString('Create a bucket</a> first', $response->body);
+        self::assertStringContainsString('disabled', $response->body);
+    }
+
+    public function testSecurityPageConfirmsRevokeAndCopiesKeyIds(): void
+    {
+        $response = Views::adminSecurity(
+            ['id' => 1, 'username' => 'root-admin'],
+            [['id' => 3, 'access_key_id' => 'AKIATESTKEY0001', 'username' => 'alice', 'description' => 'app', 'permissions' => ['read'], 'enabled' => 1, 'last_used_at' => 'never']],
+            'csrf-token',
+        );
+
+        self::assertStringContainsString("onclick=\"return confirm('Revoke this key?')\"", $response->body);
+        self::assertStringContainsString('data-copy-text="AKIATESTKEY0001"', $response->body);
+    }
+
+    public function testAdminFilesWithoutBucketsOffersCreation(): void
+    {
+        $response = Views::files(
+            ['id' => 1, 'username' => 'root-admin'],
+            [],
+            '',
+            [],
+            'csrf-token',
+        );
+
+        self::assertStringContainsString('Create your first bucket', $response->body);
+    }
+
+    public function testAuditLogPageOffersFilter(): void
+    {
+        $response = Views::adminAudit(['id' => 1, 'username' => 'root-admin'], []);
+
+        self::assertStringContainsString('id="filter"', $response->body);
+        self::assertStringContainsString('id="audit-rows"', $response->body);
+    }
+
+    public function testKeysTableOffersFilter(): void
+    {
+        $response = Views::keys(['id' => 1, 'username' => 'root-admin', 'role' => 'admin'], [], 'csrf-token');
+
+        self::assertStringContainsString('id="key-filter"', $response->body);
+        self::assertStringContainsString('id="key-rows"', $response->body);
+    }
+
+    public function testDashboardLinksOwnedBucketNamesToFileManager(): void
+    {
+        $response = Views::dashboard(
+            ['id' => 1, 'username' => 'root-admin'],
+            [
+                ['id' => 10, 'owner_id' => 1, 'name' => 'admin-files', 'username' => 'root-admin', 'objects' => 1, 'bytes' => 12],
+                ['id' => 11, 'owner_id' => 2, 'name' => 'private-user-files', 'username' => 'alice', 'objects' => 1, 'bytes' => 24],
+            ],
+            [],
+        );
+
+        self::assertStringContainsString('href="/_admin/files?bucket=admin-files"', $response->body);
+        self::assertStringNotContainsString('href="/_admin/files?bucket=private-user-files"', $response->body);
     }
 }
