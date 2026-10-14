@@ -39,3 +39,4 @@ tmp/
 node_modules/
 dist/
 .astro/
+.commandcode/
