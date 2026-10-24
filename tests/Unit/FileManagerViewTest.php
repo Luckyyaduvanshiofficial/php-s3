@@ -140,4 +140,100 @@ final class FileManagerViewTest extends TestCase
         self::assertStringContainsString('<option value="dark">Dark</option>', $response->body);
         self::assertStringContainsString('php-s3-theme', $response->body);
     }
+
+    public function testAdminFileManagerMatchesConsoleFeatureSet(): void
+    {
+        $_SESSION = ['user_id' => 1, 'role' => 'admin', 'csrf' => 'csrf-token'];
+        $response = Views::files(
+            ['id' => 1, 'username' => 'root-admin'],
+            [['name' => 'photos']],
+            'photos',
+            [['key' => 'cat.png', 'size' => 3, 'lastModified' => '2026-10-13T10:00:00.000\Z']],
+            'csrf-token',
+        );
+        $_SESSION = ['user_id' => 9, 'role' => 'user', 'csrf' => 'csrf-token'];
+
+        self::assertStringContainsString('>Duplicate<', $response->body);
+        self::assertStringContainsString('data-copy-path="cat.png"', $response->body);
+        self::assertStringContainsString('id="sort"', $response->body);
+        self::assertStringContainsString('id="drop"', $response->body);
+        self::assertStringContainsString('class="dropzone"', $response->body);
+        self::assertStringContainsString('id="progress"', $response->body);
+        self::assertStringContainsString('id="upload-status"', $response->body);
+        self::assertStringContainsString('id="upload-form"', $response->body);
+        self::assertStringContainsString('2026-10-13 10:00:00', $response->body);
+        self::assertStringContainsString('action:"copy"', $response->body);
+        self::assertStringContainsString('form.action="/_admin/files"', $response->body);
+    }
+
+    public function testBucketPickerNavigatesOnSelectionWithoutButtonClick(): void
+    {
+        $admin = Views::files(
+            ['id' => 1, 'username' => 'root-admin'],
+            [['name' => 'photos']],
+            'photos',
+            [],
+            'csrf-token',
+        );
+        $console = Views::consoleFiles(
+            ['id' => 9, 'username' => 'owner', 'role' => 'user'],
+            [['name' => 'photos']],
+            'photos',
+            '',
+            [],
+            [],
+            'csrf-token',
+        );
+
+        self::assertStringContainsString('onchange="this.form.submit()"', $admin->body);
+        self::assertStringContainsString('onchange="this.form.submit()"', $console->body);
+    }
+
+    public function testConsoleShowsLastModifiedDateFromListing(): void
+    {
+        $response = Views::consoleFiles(
+            ['id' => 9, 'username' => 'owner', 'role' => 'user'],
+            [['name' => 'photos']],
+            'photos',
+            '',
+            [['key' => 'cat.png', 'size' => 3, 'lastModified' => '2026-10-13T10:00:00.000\Z']],
+            [],
+            'csrf-token',
+        );
+
+        self::assertStringContainsString('2026-10-13 10:00:00', $response->body);
+    }
+
+    public function testConsoleOverviewOnboardsNewUsersAndShowsQuotaBar(): void
+    {
+        $fresh = Views::consoleOverview(
+            ['id' => 9, 'username' => 'owner', 'role' => 'user'],
+            ['used_bytes' => 0, 'reserved_bytes' => 0, 'quota_bytes' => 10737418240, 'objects' => 0, 'buckets' => 0],
+            [],
+            [],
+        );
+        self::assertStringContainsString('Get started', $fresh->body);
+        self::assertStringContainsString('href="/_console/buckets">Create your first bucket', $fresh->body);
+        self::assertStringContainsString('class="bar', $fresh->body);
+
+        $active = Views::consoleOverview(
+            ['id' => 9, 'username' => 'owner', 'role' => 'user'],
+            ['used_bytes' => 1024, 'reserved_bytes' => 0, 'quota_bytes' => null, 'objects' => 1, 'buckets' => 1],
+            [['name' => 'photos', 'objects' => 1, 'bytes' => 1024]],
+            [],
+        );
+        self::assertStringNotContainsString('Get started', $active->body);
+    }
+
+    public function testUsageActivityPageShowsQuotaBarWhenQuotaSet(): void
+    {
+        $response = Views::consoleActivity(
+            ['id' => 9, 'username' => 'owner', 'role' => 'user'],
+            ['used_bytes' => 5, 'reserved_bytes' => 0, 'quota_bytes' => 10, 'objects' => 1],
+            [],
+        );
+
+        self::assertStringContainsString('class="bar', $response->body);
+        self::assertStringContainsString('width:50%', $response->body);
+    }
 }

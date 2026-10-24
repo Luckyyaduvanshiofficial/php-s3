@@ -1194,7 +1194,7 @@ final class AdminKernel
         }
     }
 
-    /** @return array<string, string> */
+    /** @return array<string, string|list<string>> */
     private function parseForm(Request $request): array
     {
         return $request->parsedBody();
@@ -1303,6 +1303,8 @@ final class AdminKernel
             'allocated_quotas' => self::humanBytes($allocatedBytes),
             'actual_storage_used' => self::humanBytes($usedBytes),
             'configured_hosting_capacity' => $capacity === null ? 'not configured' : self::humanBytes($capacity),
+            'capacity_bytes' => $capacity ?? 0,
+            'used_bytes' => $usedBytes,
             'capacity_warning' => $capacity !== null && $capacity > 0 && ($usedBytes / $capacity) >= 0.9
                 ? 'Storage is at or above 90% of configured capacity.'
                 : 'No low-capacity warning.',

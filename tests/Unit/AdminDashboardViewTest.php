@@ -265,4 +265,60 @@ final class AdminDashboardViewTest extends TestCase
         self::assertStringContainsString('href="/_admin/files?bucket=admin-files"', $response->body);
         self::assertStringNotContainsString('href="/_admin/files?bucket=private-user-files"', $response->body);
     }
+
+    public function testDashboardOnboardsFreshInstallsWithThreeSteps(): void
+    {
+        $response = Views::dashboard(['id' => 1, 'username' => 'root-admin'], [], []);
+
+        self::assertStringContainsString('Get started', $response->body);
+        self::assertStringContainsString('href="/_admin/buckets#create-bucket">Create your first bucket', $response->body);
+        self::assertStringContainsString('href="/_admin/connect">Connect', $response->body);
+    }
+
+    public function testDashboardHidesOnboardingOnceBucketsExist(): void
+    {
+        $response = Views::dashboard(
+            ['id' => 1, 'username' => 'root-admin'],
+            [['id' => 10, 'owner_id' => 1, 'name' => 'admin-files', 'username' => 'root-admin', 'objects' => 1, 'bytes' => 12]],
+            [],
+        );
+
+        self::assertStringNotContainsString('Get started', $response->body);
+    }
+
+    public function testDashboardStorageBarReflectsConfiguredCapacity(): void
+    {
+        $response = Views::dashboard(
+            ['id' => 1, 'username' => 'root-admin'],
+            [],
+            [
+                'capacity_bytes' => 200,
+                'used_bytes' => 20,
+                'capacity_warning' => 'No low-capacity warning.',
+            ],
+        );
+
+        self::assertStringContainsString('class="bar"', $response->body);
+        self::assertStringContainsString('width:10%', $response->body);
+    }
+
+    public function testDashboardStorageBarOmittedWithoutConfiguredCapacity(): void
+    {
+        $response = Views::dashboard(['id' => 1, 'username' => 'root-admin'], [], []);
+
+        self::assertStringNotContainsString('class="bar', $response->body);
+    }
+
+    public function testStoragePageBarGoesDangerousNearCapacity(): void
+    {
+        $response = Views::adminStorage(
+            ['id' => 1, 'username' => 'root-admin'],
+            [['username' => 'alice', 'used_bytes' => 95, 'reserved_bytes' => 0, 'quota_bytes' => null]],
+            100,
+            'csrf-token',
+        );
+
+        self::assertStringContainsString('class="bar danger"', $response->body);
+        self::assertStringContainsString('width:95%', $response->body);
+    }
 }

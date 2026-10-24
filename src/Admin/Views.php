@@ -238,6 +238,22 @@ pre { font-family: var(--mono); font-size: .82rem; line-height: 1.65; background
 .spec dt { font: 500 .78rem var(--mono); color: var(--faint); }
 .spec dd { margin: 0; font: 500 .82rem var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 
+/* usage bar ---------------------------------------------------------------- */
+.bar { height: 8px; background: var(--sunken); border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; margin: .55rem 0 .2rem; }
+.bar > span { display: block; height: 100%; background: var(--ok); }
+.bar.warn > span { background: var(--warn); }
+.bar.danger > span { background: var(--danger); }
+
+/* onboarding steps ----------------------------------------------------------- */
+.steps { margin: 0; padding-left: 1.3rem; display: grid; gap: .85rem; }
+.steps li strong { color: var(--ink); }
+.steps .muted { display: block; font-size: .84rem; margin-top: .1rem; }
+
+/* upload dropzone ------------------------------------------------------------- */
+.dropzone { border: 1px dashed var(--rule-strong); border-radius: var(--radius); background: var(--surface); color: var(--muted); text-align: center; padding: 1.1rem; margin-top: .9rem; }
+.dropzone.drag { border-color: var(--stamp); background: var(--stamp-soft); color: var(--ink); }
+progress { width: 100%; margin-top: .6rem; }
+
 /* responsive ---------------------------------------------------------------- */
 @media (max-width: 960px) {
   .rail-inner { gap: .4rem .8rem; }
@@ -386,20 +402,23 @@ CSS;
             : '';
         $securityEvents = (string) ($info['security_events_last_24h'] ?? '0');
         $capacity = (string) ($info['configured_hosting_capacity'] ?? 'Not configured');
+        $capacityBytes = (int) ($info['capacity_bytes'] ?? 0);
+        $storageBar = $capacityBytes > 0 ? self::usageBar((int) ($info['used_bytes'] ?? 0), $capacityBytes) : '';
+        $onboarding = $buckets === [] ? '<section class="panel" id="get-started" aria-labelledby="get-started-title"><h2 id="get-started-title">Get started</h2><ol class="steps"><li><strong>Create a bucket</strong><span class="muted">A bucket is the container your files live in.</span><a href="/_admin/buckets#create-bucket">Create your first bucket</a></li><li><strong>Upload a file</strong><span class="muted">Pick a bucket in the file manager, then upload or drop a file.</span><a href="/_admin/files">Open the file manager</a></li><li><strong>Create an access key</strong><span class="muted">Keys sign requests from S3 clients; the secret is shown once at creation.</span><a href="/_admin/keys">Create a key</a>, then copy the client settings from <a href="/_admin/connect">Connect</a>.</li></ol></section>' : '';
 
         $html = self::layout('Dashboard — php-s3', '
-        ' . ($flash ? '<div class="flash">' . self::e((string) $flash) . '</div>' : '') . '
+        ' . ($flash ? '<div class="flash" role="status">' . self::e((string) $flash) . '</div>' : '') . '
         <section class="page-head" aria-labelledby="overview-title">
             <div><p class="kicker">php-s3 administration</p><h1 id="overview-title">Admin dashboard</h1>
             <p class="muted">System-wide activity and capacity at a glance. Signed in as <strong>' . self::e((string) $user['username']) . '</strong>.</p></div>
             <div class="page-actions"><a class="btn" href="/_admin/buckets#create-bucket">Create bucket</a><a class="btn secondary" href="/_admin/files">Upload files</a><a class="btn secondary" href="/_admin/keys">Create access key</a><a class="btn secondary" href="/_admin/users">Manage users</a></div>
         </section>
-        ' . $warning . '
+        ' . $onboarding . $warning . '
         <section class="metric-grid" aria-label="Storage totals">
             <article class="metric-card"><span class="metric-label">Users</span><strong class="metric-value">' . self::e((string) ($info['users'] ?? '0')) . '</strong><span class="metric-note">Registered accounts</span></article>
             <article class="metric-card"><span class="metric-label">Buckets</span><strong class="metric-value">' . self::e((string) ($info['buckets'] ?? '0')) . '</strong><span class="metric-note">Across all users</span></article>
             <article class="metric-card"><span class="metric-label">Objects</span><strong class="metric-value">' . self::e((string) ($info['objects'] ?? '0')) . '</strong><span class="metric-note">Stored files</span></article>
-            <article class="metric-card"><span class="metric-label">Storage used</span><strong class="metric-value">' . self::e((string) ($info['actual_storage_used'] ?? '0 B')) . '</strong><span class="metric-note">Configured capacity: ' . self::e($capacity) . '</span></article>
+            <article class="metric-card"><span class="metric-label">Storage used</span><strong class="metric-value">' . self::e((string) ($info['actual_storage_used'] ?? '0 B')) . '</strong>' . $storageBar . '<span class="metric-note">Configured capacity: ' . self::e($capacity) . '</span></article>
         </section>
         <div class="overview-grid">
             <section class="panel">
@@ -451,18 +470,21 @@ CSS;
 
         $rows = '';
         if ($prefix !== '') {
-            $rows .= '<tr><td colspan="3"><a href="/_admin/files?bucket=' . rawurlencode($selected) . '&amp;prefix=' . rawurlencode($parent) . '">↑ Parent folder</a></td></tr>';
+            $rows .= '<tr><td colspan="4"><a href="/_admin/files?bucket=' . rawurlencode($selected) . '&amp;prefix=' . rawurlencode($parent) . '">↑ Parent folder</a></td></tr>';
         }
         foreach ($prefixes as $folder) {
             $folder = (string) $folder;
             $label = rtrim(substr($folder, strlen($prefix)), '/');
-            $rows .= '<tr><td class="mono"><a href="/_admin/files?bucket=' . rawurlencode($selected) . '&amp;prefix=' . rawurlencode($folder) . '">' . self::e($label) . '/</a></td><td class="muted">Folder</td><td></td></tr>';
+            $rows .= '<tr><td class="mono"><a href="/_admin/files?bucket=' . rawurlencode($selected) . '&amp;prefix=' . rawurlencode($folder) . '">' . self::e($label) . '/</a></td><td class="muted">Folder</td><td></td><td></td></tr>';
         }
         foreach ($objects as $object) {
             $key = (string) $object['key'];
             $name = substr($key, strlen($prefix));
             $rows .= '<tr><td class="mono">' . self::e($name) . '</td>'
-                . '<td class="num">' . self::humanBytes((int) $object['size']) . '</td><td class="actions">'
+                . '<td class="num">' . self::humanBytes((int) $object['size']) . '</td>'
+                . '<td class="mono muted">' . self::e(self::shortDate((string) ($object['lastModified'] ?? ''))) . '</td><td class="actions">'
+                . '<button type="button" class="secondary small" data-copy-path="' . self::e($key) . '">Copy path</button>'
+                . '<button type="button" class="secondary small" data-copy-object="' . self::e($key) . '" title="Duplicate this object to a new key in this bucket">Duplicate</button>'
                 . '<form method="post" action="/_admin/files" target="_blank"><input type="hidden" name="_csrf" value="' . self::e($csrf) . '">'
                 . '<input type="hidden" name="bucket" value="' . self::e($selected) . '">' . $prefixField . '<input type="hidden" name="key" value="' . self::e($key) . '">'
                 . '<button class="secondary small" name="action" value="download" type="submit" title="Open this file in a new tab">View</button></form>'
@@ -475,34 +497,36 @@ CSS;
                 . '</td></tr>';
         }
         if ($prefixes === [] && $objects === []) {
-            $rows .= '<tr><td colspan="3" class="empty">' . ($selected === '' ? 'Choose a bucket to see its files.' : 'This location is empty. Upload a file to begin.') . '</td></tr>';
+            $rows .= '<tr><td colspan="4" class="empty">' . ($selected === '' ? 'Choose a bucket to see its files.' : 'This location is empty. Upload a file to begin.') . '</td></tr>';
         }
 
         $flashHtml = '';
         if (is_string($flash) && str_starts_with($flash, 'Share link (expires in 1 hour): ')) {
             $url = substr($flash, strlen('Share link (expires in 1 hour): '));
-            $flashHtml = '<div class="flash"><strong>Share link</strong><p>Anyone with this link can download the file for one hour.</p><div class="row"><input aria-label="Share link" readonly value="' . self::e($url) . '"><button class="secondary" type="button" data-copy-url="' . self::e($url) . '">Copy link</button><a class="btn secondary" href="' . self::e($url) . '" target="_blank" rel="noopener">Open link</a></div></div>';
+            $flashHtml = '<div class="flash" role="status"><strong>Share link</strong><p>Anyone with this link can download the file for one hour.</p><div class="row"><input aria-label="Share link" readonly value="' . self::e($url) . '"><button class="secondary" type="button" data-copy-url="' . self::e($url) . '">Copy link</button><a class="btn secondary" href="' . self::e($url) . '" target="_blank" rel="noopener">Open link</a></div></div>';
         } elseif ($flash) {
-            $flashHtml = '<div class="flash">' . self::e((string) $flash) . '</div>';
+            $flashHtml = '<div class="flash" role="status">' . self::e((string) $flash) . '</div>';
         }
 
         $upload = $selected === '' ? '' : '<div class="panel command"><div class="command-head"><h2>Upload a file</h2>'
             . '<p class="hint">Uploads into <code>' . self::e($prefix !== '' ? $prefix : $selected) . '</code>; the file name becomes its object key.</p></div>'
-            . '<form method="post" action="/_admin/files" enctype="multipart/form-data" class="command-form">'
+            . '<form id="upload-form" method="post" action="/_admin/files" enctype="multipart/form-data" class="command-form">'
             . '<input type="hidden" name="_csrf" value="' . self::e($csrf) . '"><input type="hidden" name="bucket" value="' . self::e($selected) . '">' . $prefixField
-            . '<input type="hidden" name="action" value="upload"><input type="file" name="file" required aria-label="Choose file">'
-            . '<button type="submit" class="btn">Upload</button></form></div>';
+            . '<input type="hidden" name="action" value="upload"><input id="f-file" type="file" name="file" required aria-label="Choose file">'
+            . '<button type="submit" class="btn" id="upload-btn">Upload</button></form>'
+            . '<div id="drop" class="dropzone">Drop a file here or choose it above.</div>'
+            . '<progress id="progress" max="100" value="0" hidden></progress><p id="upload-status" class="hint" role="status"></p></div>';
 
         $picker = $buckets === []
             ? '<p><a class="btn" href="/_admin/buckets#create-bucket">Create your first bucket</a></p>'
-            : '<form method="get" action="/_admin/files" class="command-form"><select name="bucket" aria-label="Bucket">' . $options . '</select><button class="secondary" type="submit">Open bucket</button></form>';
+            : '<form method="get" action="/_admin/files" class="command-form"><select name="bucket" aria-label="Bucket" onchange="this.form.submit()">' . $options . '</select><button class="secondary" type="submit">Open bucket</button></form>';
         $html = self::layout('Files — php-s3', $flashHtml . '
         <div class="panel command"><div class="command-head"><h1>Files</h1><p class="hint">Upload files, then create a one-hour direct download link to share.</p></div>
             ' . $picker . ($selected !== '' ? '<p class="muted">' . $crumb . '</p>' : '') . '
         </div>' . $upload . '
-        <div class="panel"><h2>Objects</h2><label for="filter">Filter visible objects</label><input id="filter" type="search" placeholder="Search this page"><div class="table-scroll"><table><thead><tr><th>File</th><th class="num">Size</th><th></th></tr></thead><tbody id="object-rows">' . $rows . '</tbody></table></div></div>
-        <p class="muted">Signed in as <strong>' . self::e($user['username']) . '</strong> · <a href="/_admin">Dashboard</a></p>
-        <script>(function(){var f=document.getElementById("filter"),tb=document.getElementById("object-rows");if(f&&tb)f.addEventListener("input",function(){Array.from(tb.rows).forEach(function(r){r.hidden=!r.textContent.toLowerCase().includes(f.value.toLowerCase());});});document.querySelectorAll("[data-copy-url]").forEach(function(b){b.addEventListener("click",function(){navigator.clipboard.writeText(b.getAttribute("data-copy-url")).then(function(){b.textContent="Copied";},function(){window.prompt("Copy this link",b.getAttribute("data-copy-url"));});});});})();</script>');
+        <div class="panel"><h2>Objects</h2><label for="filter">Filter visible objects</label><input id="filter" type="search" placeholder="Search this page"><label><input id="sort" type="checkbox" style="width:auto"> Sort by name</label><div class="table-scroll"><table><thead><tr><th>File</th><th class="num">Size</th><th>Modified</th><th></th></tr></thead><tbody id="object-rows">' . $rows . '</tbody></table></div></div>
+        <p class="muted">Signed in as <strong>' . self::e($user['username']) . '</strong> · <a href="/_admin">Dashboard</a></p>'
+        . self::filesScript('/_admin/files', $csrf, $selected, $prefix));
 
         return Response::html(200, $html);
     }
@@ -744,14 +768,19 @@ CSS;
     public static function consoleOverview(array $user, array $usage, array $buckets, array $activity): Response
     {
         $quota = $usage['quota_bytes'] === null ? 'No quota set' : self::humanBytes((int) $usage['quota_bytes']);
+        $quotaBar = $usage['quota_bytes'] !== null && (int) $usage['quota_bytes'] > 0
+            ? self::usageBar((int) ($usage['used_bytes'] ?? 0), (int) $usage['quota_bytes'])
+            : '';
         $bucketRows = '';
         foreach (array_slice($buckets, 0, 6) as $b) {
             $bucketRows .= '<tr><td><a class="mono" href="/_console/files?bucket=' . rawurlencode((string) $b['name']) . '">' . self::e((string) $b['name']) . '</a></td><td class="num">' . (int) $b['objects'] . '</td><td class="num">' . self::humanBytes((int) $b['bytes']) . '</td></tr>';
         }
         if ($bucketRows === '') $bucketRows = '<tr><td colspan="3" class="empty">Create a bucket to begin storing files.</td></tr>';
         $events = self::auditRows($activity);
+        $onboarding = $buckets === [] ? '<div class="panel" id="get-started"><h2>Get started</h2><ol class="steps"><li><strong>Create a bucket</strong><span class="muted">A bucket is the container your files live in.</span><a href="/_console/buckets">Create your first bucket</a></li><li><strong>Upload a file</strong><span class="muted">Open the file manager, pick your bucket, then upload or drop a file.</span><a href="/_console/files">Open the file manager</a></li><li><strong>Generate an API key</strong><span class="muted">Keys sign requests from S3 clients; the secret is shown once at creation.</span><a href="/_console/keys">Generate a key</a>, then copy the client settings from <a href="/_console/connect">Connect</a>.</li></ol></div>' : '';
         $body = '<p class="kicker">Storage account</p><h1>Overview</h1><p class="muted">Welcome, ' . self::e((string) $user['username']) . '.</p>'
-            . '<div class="panel"><dl class="spec"><div><dt>Used</dt><dd>' . self::humanBytes((int) $usage['used_bytes']) . '</dd></div><div><dt>Quota</dt><dd>' . self::e($quota) . '</dd></div><div><dt>Buckets</dt><dd>' . (int) $usage['buckets'] . '</dd></div><div><dt>Objects</dt><dd>' . (int) $usage['objects'] . '</dd></div></dl></div>'
+            . $onboarding
+            . '<div class="panel"><dl class="spec"><div><dt>Used</dt><dd>' . self::humanBytes((int) $usage['used_bytes']) . '</dd></div><div><dt>Quota</dt><dd>' . self::e($quota) . '</dd></div><div><dt>Buckets</dt><dd>' . (int) $usage['buckets'] . '</dd></div><div><dt>Objects</dt><dd>' . (int) $usage['objects'] . '</dd></div></dl>' . $quotaBar . '</div>'
             . '<div class="panel"><h2>Quick actions</h2><p><a class="btn" href="/_console/buckets">Create a bucket</a> <a class="btn secondary" href="/_console/files">Upload files</a> <a class="btn secondary" href="/_console/keys">Generate an API key</a></p></div>'
             . '<div class="panel"><h2>Recent buckets</h2><div class="table-scroll"><table><thead><tr><th>Bucket</th><th class="num">Objects</th><th class="num">Storage</th></tr></thead><tbody>' . $bucketRows . '</tbody></table></div></div>'
             . '<div class="panel"><h2>Recent activity</h2>' . $events . '</div>';
@@ -777,9 +806,9 @@ CSS;
         $sharePrefix = 'Share link (expires in 1 hour): ';
         if (is_string($flash) && str_starts_with($flash, $sharePrefix)) {
             $url = substr($flash, strlen($sharePrefix));
-            $flashHtml = '<div class="flash"><strong>Share link</strong><p>Anyone with this link can download the file for one hour.</p><div class="row"><input aria-label="Share link" readonly value="' . self::e($url) . '"><button type="button" class="secondary" data-copy-url="' . self::e($url) . '">Copy link</button><a class="btn secondary" href="' . self::e($url) . '" target="_blank" rel="noopener">Open link</a></div></div>';
+            $flashHtml = '<div class="flash" role="status"><strong>Share link</strong><p>Anyone with this link can download the file for one hour.</p><div class="row"><input aria-label="Share link" readonly value="' . self::e($url) . '"><button class="secondary" type="button" data-copy-url="' . self::e($url) . '">Copy link</button><a class="btn secondary" href="' . self::e($url) . '" target="_blank" rel="noopener">Open link</a></div></div>';
         } elseif ($flash) {
-            $flashHtml = '<div class="flash">' . self::e((string) $flash) . '</div>';
+            $flashHtml = '<div class="flash" role="status">' . self::e((string) $flash) . '</div>';
         }
         $options = '<option value="">Choose bucket</option>';
         foreach ($buckets as $b) $options .= '<option value="' . self::e((string) $b['name']) . '"' . ($selected === $b['name'] ? ' selected' : '') . '>' . self::e((string) $b['name']) . '</option>';
@@ -792,7 +821,7 @@ CSS;
         foreach ($prefixes as $p) { $p = (string) $p; $label = rtrim(substr($p, strlen($prefix)), '/'); $rows .= '<tr><td class="mono"><a href="/_console/files?bucket=' . rawurlencode($selected) . '&amp;prefix=' . rawurlencode($p) . '">' . self::e($label) . '/</a></td><td class="muted">Folder</td><td></td><td></td></tr>'; }
         foreach ($objects as $o) {
             $key = (string) $o['key']; $name = substr($key, strlen($prefix));
-            $rows .= '<tr><td class="mono">' . self::e($name) . '</td><td class="num">' . self::humanBytes((int) $o['size']) . '</td><td class="mono muted">' . self::e((string) ($o['updated_at'] ?? '')) . '</td><td class="actions">'
+            $rows .= '<tr><td class="mono">' . self::e($name) . '</td><td class="num">' . self::humanBytes((int) $o['size']) . '</td><td class="mono muted">' . self::e(self::shortDate((string) ($o['lastModified'] ?? ''))) . '</td><td class="actions">'
                 . '<button type="button" class="secondary small" data-copy-path="' . self::e($key) . '">Copy path</button> <button type="button" class="secondary small" data-copy-object="' . self::e($key) . '" title="Duplicate this object to a new key in this bucket">Duplicate</button>'
                 . '<form method="post" action="/_console/files" target="_blank"><input type="hidden" name="_csrf" value="' . self::e($csrf) . '"><input type="hidden" name="bucket" value="' . self::e($selected) . '"><input type="hidden" name="prefix" value="' . self::e($prefix) . '"><input type="hidden" name="key" value="' . self::e($key) . '"><button class="secondary small" name="action" value="download" title="Open this file in a new tab">View</button></form>'
                 . '<form method="post" action="/_console/files"><input type="hidden" name="_csrf" value="' . self::e($csrf) . '"><input type="hidden" name="bucket" value="' . self::e($selected) . '"><input type="hidden" name="prefix" value="' . self::e($prefix) . '"><input type="hidden" name="key" value="' . self::e($key) . '"><button class="secondary small" name="action" value="share">Share link</button></form>'
@@ -800,12 +829,12 @@ CSS;
                 . '</td></tr>';
         }
         if ($rows === '') $rows = '<tr><td colspan="4" class="empty">' . ($selected === '' ? 'Choose a bucket to browse.' : 'This location is empty. Upload a file to begin.') . '</td></tr>';
-        $upload = $selected === '' ? '' : '<form id="upload-form" method="post" action="/_console/files" enctype="multipart/form-data" class="panel"><input type="hidden" name="_csrf" value="' . self::e($csrf) . '"><input type="hidden" name="action" value="upload"><input type="hidden" name="bucket" value="' . self::e($selected) . '"><input type="hidden" name="prefix" value="' . self::e($prefix) . '"><label for="upload">Upload files into ' . self::e($prefix ?: $selected) . '</label><input id="upload" type="file" name="file" required><div id="drop" class="panel">Drop a file here or choose it above.</div><progress id="progress" max="100" value="0" hidden></progress><button>Upload</button><p class="hint">Uploads are subject to this account’s storage quota and host upload limits.</p></form>';
+        $upload = $selected === '' ? '' : '<form id="upload-form" method="post" action="/_console/files" enctype="multipart/form-data" class="panel"><input type="hidden" name="_csrf" value="' . self::e($csrf) . '"><input type="hidden" name="action" value="upload"><input type="hidden" name="bucket" value="' . self::e($selected) . '"><input type="hidden" name="prefix" value="' . self::e($prefix) . '"><label for="f-file">Upload files into ' . self::e($prefix ?: $selected) . '</label><input id="f-file" type="file" name="file" required><div id="drop" class="dropzone">Drop a file here or choose it above.</div><progress id="progress" max="100" value="0" hidden></progress><p id="upload-status" class="hint" role="status"></p><button id="upload-btn">Upload</button><p class="hint">Uploads are subject to this account’s storage quota and host upload limits.</p></form>';
         $picker = $buckets === []
             ? '<p><a class="btn" href="/_console/buckets">Create your first bucket</a></p>'
-            : '<form method="get" action="/_console/files" class="command-form"><select name="bucket" aria-label="Bucket">' . $options . '</select><button class="secondary">Open bucket</button></form>';
+            : '<form method="get" action="/_console/files" class="command-form"><select name="bucket" aria-label="Bucket" onchange="this.form.submit()">' . $options . '</select><button class="secondary" type="submit">Open bucket</button></form>';
         $body = $flashHtml . '<div class="panel"><h1>File manager</h1>' . $picker . '<p class="muted">' . $crumb . '</p><label for="filter">Filter visible objects</label><input id="filter" type="search" placeholder="Search this page"><label><input id="sort" type="checkbox" style="width:auto"> Sort by name</label></div>' . $upload . '<div class="panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th class="num">Size</th><th>Modified</th><th></th></tr></thead><tbody id="object-rows">' . $rows . '</tbody></table></div></div>'
-            . '<script>(function(){var f=document.getElementById("filter"),tb=document.getElementById("object-rows");if(f)f.addEventListener("input",function(){Array.from(tb.rows).forEach(function(r){r.hidden=!r.textContent.toLowerCase().includes(f.value.toLowerCase());});});var s=document.getElementById("sort");if(s)s.addEventListener("change",function(){Array.from(tb.rows).sort(function(a,b){return a.cells[0].textContent.localeCompare(b.cells[0].textContent);}).forEach(function(r){tb.appendChild(r);});});document.querySelectorAll("[data-copy-path]").forEach(function(b){b.addEventListener("click",function(){navigator.clipboard.writeText(b.dataset.copyPath);b.textContent="Copied";});});document.querySelectorAll("[data-copy-url]").forEach(function(b){b.addEventListener("click",function(){var u=b.dataset.copyUrl;navigator.clipboard.writeText(u).then(function(){b.textContent="Copied";},function(){window.prompt("Copy this share link",u);});});});document.querySelectorAll("[data-copy-object]").forEach(function(b){b.addEventListener("click",function(){var target=prompt("Copy object to key:",b.dataset.copyObject);if(!target)return;var form=document.createElement("form");form.method="post";form.action="/_console/files";var fields={_csrf:' . self::js($csrf) . ',action:"copy",bucket:' . self::js($selected) . ',prefix:' . self::js($prefix) . ',key:b.dataset.copyObject,target_key:target};Object.keys(fields).forEach(function(k){var i=document.createElement("input");i.type="hidden";i.name=k;i.value=fields[k];form.appendChild(i);});document.body.appendChild(form);form.submit();});});var d=document.getElementById("drop"),i=document.getElementById("upload"),form=document.getElementById("upload-form");if(d&&form){d.addEventListener("dragover",function(e){e.preventDefault();});d.addEventListener("drop",function(e){e.preventDefault();if(e.dataTransfer.files.length){i.files=e.dataTransfer.files;form.requestSubmit();}});form.addEventListener("submit",function(e){if(!window.XMLHttpRequest)return;e.preventDefault();var x=new XMLHttpRequest(),p=document.getElementById("progress");p.hidden=false;x.upload.onprogress=function(ev){if(ev.lengthComputable)p.value=Math.round(ev.loaded/ev.total*100);};x.onload=function(){if(x.status>=200&&x.status<400)location.reload();else alert("Upload failed. Check your quota and host upload limit.");};x.onerror=function(){alert("Upload failed. Check the connection and try again.");};x.open("POST",form.action);x.send(new FormData(form));});}})();</script>';
+            . self::filesScript('/_console/files', $csrf, $selected, $prefix);
         return Response::html(200, self::layout('File manager — php-s3', $body));
     }
 
@@ -820,7 +849,10 @@ CSS;
     public static function consoleActivity(array $user, array $usage, array $events): Response
     {
         $quota = $usage['quota_bytes'] === null ? 'No quota set' : self::humanBytes((int) $usage['quota_bytes']);
-        return Response::html(200, self::layout('Usage & activity — php-s3', '<div class="panel"><h1>Usage &amp; activity</h1><dl class="spec"><div><dt>Committed</dt><dd>' . self::humanBytes((int) ($usage['used_bytes'] ?? 0)) . '</dd></div><div><dt>In progress</dt><dd>' . self::humanBytes((int) ($usage['reserved_bytes'] ?? 0)) . '</dd></div><div><dt>Quota</dt><dd>' . self::e($quota) . '</dd></div><div><dt>Objects</dt><dd>' . (int) ($usage['objects'] ?? 0) . '</dd></div></dl></div><div class="panel"><h2>Recent activity</h2>' . self::auditRows($events) . '</div>'));
+        $quotaBar = $usage['quota_bytes'] !== null && (int) $usage['quota_bytes'] > 0
+            ? self::usageBar((int) ($usage['used_bytes'] ?? 0), (int) $usage['quota_bytes'])
+            : '';
+        return Response::html(200, self::layout('Usage & activity — php-s3', '<div class="panel"><h1>Usage &amp; activity</h1><dl class="spec"><div><dt>Committed</dt><dd>' . self::humanBytes((int) ($usage['used_bytes'] ?? 0)) . '</dd></div><div><dt>In progress</dt><dd>' . self::humanBytes((int) ($usage['reserved_bytes'] ?? 0)) . '</dd></div><div><dt>Quota</dt><dd>' . self::e($quota) . '</dd></div><div><dt>Objects</dt><dd>' . (int) ($usage['objects'] ?? 0) . '</dd></div></dl>' . $quotaBar . '</div><div class="panel"><h2>Recent activity</h2>' . self::auditRows($events) . '</div>'));
     }
 
     public static function consoleAccount(array $user, array $sessions, string $csrf, string $currentHash): Response
@@ -875,7 +907,8 @@ CSS;
     {
         $rows = ''; $used = 0; $allocated = 0;
         foreach ($usage as $u) { $used += (int) $u['used_bytes']; if ($u['quota_bytes'] !== null) $allocated += (int) $u['quota_bytes']; $rows .= '<tr><td>' . self::e((string) $u['username']) . '</td><td class="num">' . self::humanBytes((int) $u['used_bytes']) . '</td><td class="num">' . self::humanBytes((int) $u['reserved_bytes']) . '</td><td class="num">' . ($u['quota_bytes'] === null ? 'unlimited' : self::humanBytes((int) $u['quota_bytes'])) . '</td></tr>'; }
-        return Response::html(200, self::layout('Storage — php-s3', '<div class="panel"><h1>Storage &amp; quotas</h1><dl class="spec"><div><dt>Actual object bytes</dt><dd>' . self::humanBytes($used) . '</dd></div><div><dt>Allocated quotas</dt><dd>' . self::humanBytes($allocated) . '</dd></div><div><dt>Configured hosting capacity</dt><dd>' . ($capacity === null ? 'Not configured' : self::humanBytes($capacity)) . '</dd></div></dl><p class="notice-warn">Hosting capacity is an administrator supplied estimate. PHP disk free space does not report your shared hosting account allocation.</p></div><div class="panel"><div class="table-scroll"><table><thead><tr><th>User</th><th class="num">Used</th><th class="num">Reserved</th><th class="num">Quota</th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="4" class="empty">No accounts.</td></tr>') . '</tbody></table></div><p><a href="/_admin/settings">Configure hosting capacity</a></p></div>'));
+        $capacityBar = $capacity !== null && $capacity > 0 ? self::usageBar($used, $capacity) : '';
+        return Response::html(200, self::layout('Storage — php-s3', '<div class="panel"><h1>Storage &amp; quotas</h1><dl class="spec"><div><dt>Actual object bytes</dt><dd>' . self::humanBytes($used) . '</dd></div><div><dt>Allocated quotas</dt><dd>' . self::humanBytes($allocated) . '</dd></div><div><dt>Configured hosting capacity</dt><dd>' . ($capacity === null ? 'Not configured' : self::humanBytes($capacity)) . '</dd></div></dl>' . $capacityBar . '<p class="notice-warn">Hosting capacity is an administrator supplied estimate. PHP disk free space does not report your shared hosting account allocation.</p></div><div class="panel"><div class="table-scroll"><table><thead><tr><th>User</th><th class="num">Used</th><th class="num">Reserved</th><th class="num">Quota</th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="4" class="empty">No accounts.</td></tr>') . '</tbody></table></div><p><a href="/_admin/settings">Configure hosting capacity</a></p></div>'));
     }
 
     public static function adminSecurity(array $admin, array $keys, string $csrf): Response
@@ -937,6 +970,48 @@ CSS;
             . '<p><a href="/_admin">Back to dashboard</a></p></div>'));
     }
 
+    /**
+     * Shared file-manager behaviour (filter, sort, copy, duplicate, drop-zone
+     * upload with progress) — identical on the admin and console pages.
+     */
+    private static function filesScript(string $base, string $csrf, string $selected, string $prefix): string
+    {
+        return '<script>(function(){'
+            . 'var tb=document.getElementById("object-rows"),f=document.getElementById("filter");'
+            . 'if(f&&tb)f.addEventListener("input",function(){Array.from(tb.rows).forEach(function(r){r.hidden=!r.textContent.toLowerCase().includes(f.value.toLowerCase());});});'
+            . 'var s=document.getElementById("sort");'
+            . 'if(s&&tb)s.addEventListener("change",function(){Array.from(tb.rows).sort(function(a,b){return a.cells[0].textContent.trim().localeCompare(b.cells[0].textContent.trim());}).forEach(function(r){tb.appendChild(r);});});'
+            . 'document.querySelectorAll("[data-copy-path]").forEach(function(b){b.addEventListener("click",function(){navigator.clipboard.writeText(b.dataset.copyPath);b.textContent="Copied";});});'
+            . 'document.querySelectorAll("[data-copy-url]").forEach(function(b){b.addEventListener("click",function(){var u=b.dataset.copyUrl;navigator.clipboard.writeText(u).then(function(){b.textContent="Copied";},function(){window.prompt("Copy this share link",u);});});});'
+            . 'document.querySelectorAll("[data-copy-object]").forEach(function(b){b.addEventListener("click",function(){var target=prompt("Duplicate this object to key:",b.dataset.copyObject);if(!target)return;var form=document.createElement("form");form.method="post";form.action="' . self::e($base) . '";var fields={_csrf:' . self::js($csrf) . ',action:"copy",bucket:' . self::js($selected) . ',prefix:' . self::js($prefix) . ',key:b.dataset.copyObject,target_key:target};Object.keys(fields).forEach(function(k){var i=document.createElement("input");i.type="hidden";i.name=k;i.value=fields[k];form.appendChild(i);});document.body.appendChild(form);form.submit();});});'
+            . 'var d=document.getElementById("drop"),i=document.getElementById("f-file"),form=document.getElementById("upload-form"),btn=document.getElementById("upload-btn"),status=document.getElementById("upload-status");'
+            . 'if(d&&form){d.addEventListener("dragover",function(e){e.preventDefault();d.classList.add("drag");});d.addEventListener("dragleave",function(){d.classList.remove("drag");});d.addEventListener("drop",function(e){e.preventDefault();d.classList.remove("drag");if(e.dataTransfer.files.length){i.files=e.dataTransfer.files;form.requestSubmit();}});}'
+            . 'if(form){form.addEventListener("submit",function(e){if(!window.XMLHttpRequest)return;e.preventDefault();'
+            . 'var x=new XMLHttpRequest(),p=document.getElementById("progress"),file=i&&i.files[0];p.hidden=false;if(btn)btn.disabled=true;'
+            . 'x.upload.onprogress=function(ev){if(ev.lengthComputable){p.value=Math.round(ev.loaded/ev.total*100);if(status&&file)status.textContent="Uploading "+file.name+" — "+p.value+"%";}};'
+            . 'x.onload=function(){if(x.status>=200&&x.status<400){location.reload();}else{if(btn)btn.disabled=false;if(status)status.textContent="Upload failed ("+x.status+"). Check your quota and host upload limit.";alert("Upload failed. Check your quota and host upload limit.");}};'
+            . 'x.onerror=function(){if(btn)btn.disabled=false;if(status)status.textContent="Upload failed. Check the connection and try again.";alert("Upload failed. Check the connection and try again.");};'
+            . 'x.open("POST",form.action);x.send(new FormData(form));});}'
+            . '})();</script>';
+    }
+
+    /** Storage usage bar; warn tone at 75%, danger at 90%. */
+    private static function usageBar(int $used, int $limit): string
+    {
+        $limit = max(1, $limit);
+        $pct = min(100, (int) round($used * 100 / $limit));
+        $tone = $pct >= 90 ? ' danger' : ($pct >= 75 ? ' warn' : '');
+
+        return '<div class="bar' . $tone . '" role="img" aria-label="Storage: ' . $pct . '% of the limit in use">'
+            . '<span style="width:' . $pct . '%"></span></div>';
+    }
+
+    /** ISO-8601 listing timestamp (2026-10-13T10:00:00.000Z) → 2026-10-13 10:00:00 */
+    private static function shortDate(string $iso): string
+    {
+        return str_replace(['T', '.000Z'], [' ', ''], $iso);
+    }
+
     private static function layout(string $title, string $body): string
     {
         $nav = '';
@@ -982,7 +1057,7 @@ CSS;
     {
         $flash = $_SESSION['flash'] ?? null;
         unset($_SESSION['flash']);
-        return $flash ? '<div class="flash">' . self::e((string) $flash) . '</div>' : '';
+        return $flash ? '<div class="flash" role="status">' . self::e((string) $flash) . '</div>' : '';
     }
 
     private static function e(string $s): string
