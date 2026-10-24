@@ -33,7 +33,7 @@ final class Request
 {
     private $bodyStream = null;
 
-    /** @var array<string, string>|null memoized parse of the request body */
+    /** @var array<string, string|list<string>>|null memoized parse of the request body */
     private ?array $parsedBody = null;
 
     private function __construct(
@@ -185,12 +185,12 @@ final class Request
     }
 
     /**
-     * application/x-www-form-urlencoded body, parsed once per request.
+     * Parsed form body (urlencoded or multipart), read once per request.
      *
      * php://input can only be streamed once through a given handle, so
      * callers must share this memo (requireCsrf + handlers both need it).
      *
-     * @return array<string, string>
+     * @return array<string, string|list<string>>
      */
     public function parsedBody(): array
     {
@@ -198,17 +198,38 @@ final class Request
             return $this->parsedBody;
         }
         if (str_starts_with(strtolower($this->header('content-type') ?? ''), 'multipart/form-data')) {
-            $out = array_filter($_POST, 'is_scalar');
-            return $this->parsedBody = array_map('strval', $out);
+            return $this->parsedBody = self::normalizeFormFields($_POST);
         }
         $raw = stream_get_contents($this->bodyStream());
         if ($raw === false || $raw === '') {
             return $this->parsedBody = [];
         }
         parse_str($raw, $out);
-        $out = array_filter($out, 'is_scalar');
 
-        return $this->parsedBody = array_map('strval', $out);
+        return $this->parsedBody = self::normalizeFormFields($out);
+    }
+
+    /**
+     * Scalars stay strings; flat scalar arrays survive as lists — multi-select
+     * controls submit as `name[]` (e.g. allowed_buckets[] on the keys page).
+     * Nested arrays are dropped: no rendered form produces them, and consumers
+     * must never see non-string leaves.
+     *
+     * @param array<string, mixed> $fields raw parse_str()/$_POST output
+     * @return array<string, string|list<string>>
+     */
+    public static function normalizeFormFields(array $fields): array
+    {
+        $out = [];
+        foreach ($fields as $name => $value) {
+            if (is_scalar($value)) {
+                $out[(string) $name] = (string) $value;
+            } elseif (is_array($value) && !in_array(false, array_map('is_scalar', $value), true)) {
+                $out[(string) $name] = array_values(array_map('strval', $value));
+            }
+        }
+
+        return $out;
     }
 
     /** @return array{name:string,type:string,tmp_name:string,error:int,size:int}|null */

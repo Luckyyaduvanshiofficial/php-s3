@@ -89,4 +89,59 @@ final class RequestTest extends TestCase
 
         self::assertSame('AWS4-HMAC-SHA256 Credential=x', $r->header('authorization'));
     }
+
+    /**
+     * Multi-select controls submit as `name[]` (keys page: allowed_buckets[]).
+     * Dropping array fields made console key creation always fail with
+     * "Choose one or more buckets" — the selection never reached the server.
+     */
+    public function testMultiSelectFieldsSurviveMultipartFormParsing(): void
+    {
+        $r = php_s3_test_request('POST', '/_console/keys', ['Content-Type' => 'multipart/form-data; boundary=x']);
+        $_POST = [
+            '_csrf' => 'tok',
+            'action' => 'create',
+            'allowed_buckets' => ['photos', 'backups'],
+            'nested' => [['evil']],
+        ];
+
+        $body = $r->parsedBody();
+
+        self::assertSame('tok', $body['_csrf']);
+        self::assertSame('create', $body['action']);
+        self::assertSame(['photos', 'backups'], $body['allowed_buckets'] ?? null);
+        self::assertArrayNotHasKey('nested', $body);
+    }
+
+    public function testUrlencodedMultiSelectBodyParsesToBucketList(): void
+    {
+        parse_str('_csrf=tok&action=create&allowed_buckets%5B%5D=photos&allowed_buckets%5B%5D=backups', $raw);
+
+        $body = Request::normalizeFormFields($raw);
+
+        self::assertSame('create', $body['action']);
+        self::assertSame(['photos', 'backups'], $body['allowed_buckets']);
+    }
+
+    public function testNormalizeFormFieldsKeepsScalarListsAndDropsNestedArrays(): void
+    {
+        $body = Request::normalizeFormFields([
+            'scalar' => 7,
+            'names' => ['a', 'b'],
+            'gapped' => [0 => 'x', 2 => 'y'],
+            'nested' => ['a' => ['b']],
+            'mixed' => ['ok', ['no']],
+        ]);
+
+        self::assertSame('7', $body['scalar']);
+        self::assertSame(['a', 'b'], $body['names']);
+        self::assertSame(['x', 'y'], $body['gapped']);
+        self::assertArrayNotHasKey('nested', $body);
+        self::assertArrayNotHasKey('mixed', $body);
+    }
+
+    protected function tearDown(): void
+    {
+        $_POST = [];
+    }
 }
